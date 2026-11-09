@@ -37,8 +37,11 @@ jobs:
         shell: bash
         run: |
           tested=0
+          # The helper's library and program share a name; only the library's
+          # test binary contains these tests.
           for binary in target/debug/deps/rufust_helper-*; do
-            if [[ -f "$binary" && -x "$binary" ]]; then
+            if [[ -f "$binary" && -x "$binary" ]] &&
+              "$binary" --list --ignored | grep -q '^source_snapshot::tests::protected_snapshot_is_stable_and_read_only:'; then
               sudo -- "$binary" --exact source_snapshot::tests::protected_snapshot_is_stable_and_read_only --ignored
               sudo -- "$binary" --exact virtual_disk::tests::providers_roundtrip_bound_sources_and_reject_oversized_targets --ignored
               sudo -- "$binary" --exact virtual_disk::tests::converted_virtual_disk_writes_to_a_private_loop_device --ignored
