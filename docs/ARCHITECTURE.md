@@ -29,11 +29,11 @@ The planner converts a device snapshot, image report, and user options into an i
 
 ### udisks2 engine
 
-`rufus_helper::execute_with_udisks` runs a request in the desktop process as
+`rufust_helper::execute_with_udisks` runs a request in the desktop process as
 the user. The system udisks2 daemon partitions, formats, mounts, and opens raw
 descriptors under its own polkit policy; the engine streams images, copies ISO
-files (via `rufus_image::isofs`), writes boot code, and verifies. Windows media
-layout and boot records live in `rufus-helper/src/windows_media.rs`. This is
+files (via `rufust_image::isofs`), writes boot code, and verifies. Windows media
+layout and boot records live in `rufust-helper/src/windows_media.rs`. This is
 the default path and the only one that builds Windows media.
 
 ### Privileged helper

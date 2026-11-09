@@ -1,6 +1,6 @@
 # Contributors
 
-Rufus Linux is led by NitroDiesel and developed with contributors
+Rufust is led by NitroDiesel and developed with contributors
 recorded in the repository's Git history. GitHub Insights remains the
 authoritative complete contributor list.
 

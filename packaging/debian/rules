@@ -10,19 +10,19 @@ override_dh_auto_test:
 	cargo test --workspace --locked --offline
 
 override_dh_auto_install:
-	install -Dm0755 target/release/rufus-linux \
-		debian/rufus-linux/usr/bin/rufus-linux
-	install -Dm0755 target/release/rufus-linux-helper \
-		debian/rufus-linux/usr/libexec/rufus-linux-helper
-	install -Dm0644 packaging/desktop/io.github.nitrodiesel.rufus-linux.desktop \
-		debian/rufus-linux/usr/share/applications/io.github.nitrodiesel.rufus-linux.desktop
-	install -Dm0644 packaging/metainfo/io.github.nitrodiesel.rufus-linux.metainfo.xml \
-		debian/rufus-linux/usr/share/metainfo/io.github.nitrodiesel.rufus-linux.metainfo.xml
-	install -Dm0644 packaging/polkit/io.github.nitrodiesel.rufus-linux.policy \
-		debian/rufus-linux/usr/share/polkit-1/actions/io.github.nitrodiesel.rufus-linux.policy
-	install -Dm0644 packaging/tmpfiles/rufus-linux.conf \
-		debian/rufus-linux/usr/lib/tmpfiles.d/rufus-linux.conf
+	install -Dm0755 target/release/rufust \
+		debian/rufust/usr/bin/rufust
+	install -Dm0755 target/release/rufust-helper \
+		debian/rufust/usr/libexec/rufust-helper
+	install -Dm0644 packaging/desktop/io.github.nitrodiesel.rufust.desktop \
+		debian/rufust/usr/share/applications/io.github.nitrodiesel.rufust.desktop
+	install -Dm0644 packaging/metainfo/io.github.nitrodiesel.rufust.metainfo.xml \
+		debian/rufust/usr/share/metainfo/io.github.nitrodiesel.rufust.metainfo.xml
+	install -Dm0644 packaging/polkit/io.github.nitrodiesel.rufust.policy \
+		debian/rufust/usr/share/polkit-1/actions/io.github.nitrodiesel.rufust.policy
+	install -Dm0644 packaging/tmpfiles/rufust.conf \
+		debian/rufust/usr/lib/tmpfiles.d/rufust.conf
 	set -e; for size in 16 24 32 48 64 128 256 512; do \
-		install -Dm0644 assets/icons/rufus-linux-$$size.png \
-		debian/rufus-linux/usr/share/icons/hicolor/$${size}x$${size}/apps/io.github.nitrodiesel.rufus-linux.png; \
+		install -Dm0644 assets/icons/rufust-$$size.png \
+		debian/rufust/usr/share/icons/hicolor/$${size}x$${size}/apps/io.github.nitrodiesel.rufust.png; \
 	done

@@ -5,12 +5,12 @@
 ```sh
 cargo test --workspace
 cargo build
-cargo run -p rufus-linux
+cargo run -p rufust
 ```
 
 The desktop has no environment-variable bypass for destructive writes. A live
 operation is available only through the installed polkit policy and
-`/usr/libexec/rufus-linux-helper`. Use the helper's `--dry-run` mode for request
+`/usr/libexec/rufust-helper`. Use the helper's `--dry-run` mode for request
 validation and disposable loop devices for integration tests. Never test on a
 disk containing useful data.
 

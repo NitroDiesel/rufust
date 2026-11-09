@@ -24,32 +24,32 @@ install -d \
     "$appdir/usr/bin" \
     "$appdir/usr/share/applications" \
     "$appdir/usr/share/metainfo" \
-    "$appdir/usr/share/licenses/rufus-linux" \
-    "$appdir/usr/share/doc/rufus-linux"
+    "$appdir/usr/share/licenses/rufust" \
+    "$appdir/usr/share/doc/rufust"
 
-install -m0755 "$binary" "$appdir/usr/bin/rufus-linux"
+install -m0755 "$binary" "$appdir/usr/bin/rufust"
 install -m0755 "$script_dir/AppRun" "$appdir/AppRun"
 install -m0644 \
-    "$repo_root/packaging/desktop/io.github.nitrodiesel.rufus-linux.desktop" \
-    "$appdir/usr/share/applications/io.github.nitrodiesel.rufus-linux.desktop"
+    "$repo_root/packaging/desktop/io.github.nitrodiesel.rufust.desktop" \
+    "$appdir/usr/share/applications/io.github.nitrodiesel.rufust.desktop"
 install -m0644 \
-    "$repo_root/packaging/metainfo/io.github.nitrodiesel.rufus-linux.metainfo.xml" \
-    "$appdir/usr/share/metainfo/io.github.nitrodiesel.rufus-linux.metainfo.xml"
-ln -s io.github.nitrodiesel.rufus-linux.metainfo.xml \
-    "$appdir/usr/share/metainfo/io.github.nitrodiesel.rufus-linux.appdata.xml"
+    "$repo_root/packaging/metainfo/io.github.nitrodiesel.rufust.metainfo.xml" \
+    "$appdir/usr/share/metainfo/io.github.nitrodiesel.rufust.metainfo.xml"
+ln -s io.github.nitrodiesel.rufust.metainfo.xml \
+    "$appdir/usr/share/metainfo/io.github.nitrodiesel.rufust.appdata.xml"
 for size in 16 24 32 48 64 128 256 512; do
-    install -Dm0644 "$repo_root/assets/icons/rufus-linux-$size.png" \
-        "$appdir/usr/share/icons/hicolor/${size}x${size}/apps/io.github.nitrodiesel.rufus-linux.png"
+    install -Dm0644 "$repo_root/assets/icons/rufust-$size.png" \
+        "$appdir/usr/share/icons/hicolor/${size}x${size}/apps/io.github.nitrodiesel.rufust.png"
 done
 install -m0644 "$repo_root/LICENSE.txt" \
-    "$appdir/usr/share/licenses/rufus-linux/LICENSE.txt"
+    "$appdir/usr/share/licenses/rufust/LICENSE.txt"
 install -m0644 "$repo_root/assets/icons/LICENSE.txt" \
-    "$appdir/usr/share/licenses/rufus-linux/ICON-LICENSE.txt"
+    "$appdir/usr/share/licenses/rufust/ICON-LICENSE.txt"
 install -m0644 "$repo_root/README.md" "$repo_root/THIRD_PARTY.md" \
-    "$appdir/usr/share/doc/rufus-linux/"
+    "$appdir/usr/share/doc/rufust/"
 
-ln -s usr/share/applications/io.github.nitrodiesel.rufus-linux.desktop \
-    "$appdir/io.github.nitrodiesel.rufus-linux.desktop"
-ln -s usr/share/icons/hicolor/256x256/apps/io.github.nitrodiesel.rufus-linux.png \
-    "$appdir/io.github.nitrodiesel.rufus-linux.png"
-ln -s io.github.nitrodiesel.rufus-linux.png "$appdir/.DirIcon"
+ln -s usr/share/applications/io.github.nitrodiesel.rufust.desktop \
+    "$appdir/io.github.nitrodiesel.rufust.desktop"
+ln -s usr/share/icons/hicolor/256x256/apps/io.github.nitrodiesel.rufust.png \
+    "$appdir/io.github.nitrodiesel.rufust.png"
+ln -s io.github.nitrodiesel.rufust.png "$appdir/.DirIcon"

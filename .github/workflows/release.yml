@@ -20,7 +20,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  PACKAGE_VERSION: 1.0.1
+  PACKAGE_VERSION: 1.1.0
 
 jobs:
   debian:
@@ -43,7 +43,7 @@ jobs:
           ln -s packaging/debian debian
           dpkg-buildpackage --build=binary --no-sign --no-check-builddeps
           mkdir -p dist
-          find .. -maxdepth 1 -type f -name 'rufus-linux_*.deb' \
+          find .. -maxdepth 1 -type f -name 'rufust_*.deb' \
             ! -name '*-dbgsym_*' -exec cp '{}' dist/ \;
       - name: Validate Debian installer
         run: |
@@ -59,10 +59,10 @@ jobs:
           dpkg-deb --contents "$package"
           dpkg-deb --fsys-tarfile "$package" |
             tar -tf - |
-            grep -Fx './usr/libexec/rufus-linux-helper'
+            grep -Fx './usr/libexec/rufust-helper'
           dpkg-deb --fsys-tarfile "$package" |
             tar -tf - |
-            grep -Fx './usr/bin/rufus-linux'
+            grep -Fx './usr/bin/rufust'
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: installer-debian
@@ -99,14 +99,14 @@ jobs:
               topdir=/tmp/rpmbuild
               mkdir -p "$topdir"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
               git archive --format=tar \
-                --prefix="rufus-linux-${PACKAGE_VERSION}/" HEAD |
-                gzip -n > "$topdir/SOURCES/rufus-linux-${PACKAGE_VERSION}.tar.gz"
+                --prefix="rufust-${PACKAGE_VERSION}/" HEAD |
+                gzip -n > "$topdir/SOURCES/rufust-${PACKAGE_VERSION}.tar.gz"
               rpmbuild \
                 --define "_topdir $topdir" \
-                -ba packaging/rpm/rufus-linux.spec
+                -ba packaging/rpm/rufust.spec
               package="$(
                 find "$topdir/RPMS" -type f \
-                  -name "rufus-linux-${PACKAGE_VERSION}-*.rpm" \
+                  -name "rufust-${PACKAGE_VERSION}-*.rpm" \
                   ! -name "*debug*" -print -quit
               )"
               test -n "$package"
@@ -116,8 +116,8 @@ jobs:
                 wayland-libs libglvnd-glx libglvnd-egl qemu-img libnbd; do
                 grep -Fx "$dependency" <<< "$dependencies"
               done
-              rpm -qpl "$package" | grep -Fx /usr/bin/rufus-linux
-              rpm -qpl "$package" | grep -Fx /usr/libexec/rufus-linux-helper
+              rpm -qpl "$package" | grep -Fx /usr/bin/rufust
+              rpm -qpl "$package" | grep -Fx /usr/libexec/rufust-helper
               cp "$package" /src/dist/
             '
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -135,8 +135,8 @@ jobs:
         run: |
           mkdir -p dist
           git archive --format=tar.gz \
-            --prefix="rufus-linux-${PACKAGE_VERSION}/" \
-            HEAD > "dist/rufus-linux-${PACKAGE_VERSION}.tar.gz"
+            --prefix="rufust-${PACKAGE_VERSION}/" \
+            HEAD > "dist/rufust-${PACKAGE_VERSION}.tar.gz"
       - name: Build and validate Arch installer
         run: |
           for attempt in 1 2 3; do
@@ -162,10 +162,10 @@ jobs:
               install -d -o builder -g builder "$workdir"
               install -o builder -g builder packaging/arch/PKGBUILD "$workdir/"
               install -o builder -g builder \
-                "dist/rufus-linux-${PACKAGE_VERSION}.tar.gz" "$workdir/"
-              source_sha="$(sha256sum "dist/rufus-linux-${PACKAGE_VERSION}.tar.gz" | cut -d " " -f 1)"
+                "dist/rufust-${PACKAGE_VERSION}.tar.gz" "$workdir/"
+              source_sha="$(sha256sum "dist/rufust-${PACKAGE_VERSION}.tar.gz" | cut -d " " -f 1)"
               sed -i \
-                "s|^source=.*|source=(\"rufus-linux-\$pkgver.tar.gz\")|" \
+                "s|^source=.*|source=(\"rufust-\$pkgver.tar.gz\")|" \
                 "$workdir/PKGBUILD"
               sed -i \
                 "s|^sha256sums=.*|sha256sums=(\"$source_sha\")|" \
@@ -174,20 +174,20 @@ jobs:
                 "cd $workdir && makepkg --cleanbuild --noconfirm"
               package="$(
                 find "$workdir" -maxdepth 1 -type f \
-                  -name "rufus-linux-[0-9]*-x86_64.pkg.tar.zst" -print -quit
+                  -name "rufust-[0-9]*-x86_64.pkg.tar.zst" -print -quit
               )"
               test -n "$package"
-              bsdtar -tf "$package" | grep -Fx usr/bin/rufus-linux
+              bsdtar -tf "$package" | grep -Fx usr/bin/rufust
               dependencies="$(bsdtar -xOf "$package" .PKGINFO)"
               for dependency in libxkbcommon-x11 libxcursor libxi libglvnd \
                 wayland libx11 libxcb qemu-img libnbd; do
                 grep -Fx "depend = $dependency" <<< "$dependencies"
               done
               bsdtar -tf "$package" |
-                grep -Fx usr/libexec/rufus-linux-helper
+                grep -Fx usr/libexec/rufust-helper
               cp "$package" /src/dist/
             '
-          rm "dist/rufus-linux-${PACKAGE_VERSION}.tar.gz"
+          rm "dist/rufust-${PACKAGE_VERSION}.tar.gz"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: installer-arch
@@ -214,7 +214,7 @@ jobs:
             -v "$PWD:/src" \
             -w /src \
             -e CARGO_HOME=/tmp/cargo \
-            -e CARGO_TARGET_DIR=/tmp/rufus-target \
+            -e CARGO_TARGET_DIR=/tmp/rufust-target \
             -e RUSTUP_HOME=/tmp/rustup \
             "$image" \
             bash -euxo pipefail -c '
@@ -225,9 +225,9 @@ jobs:
               curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs |
                 sh -s -- -y --profile minimal --default-toolchain 1.85.0
               export PATH=/tmp/cargo/bin:$PATH
-              cargo build --release --locked -p rufus-linux
-              install -m0755 /tmp/rufus-target/release/rufus-linux \
-                /src/dist/rufus-linux-appimage-bin
+              cargo build --release --locked -p rufust
+              install -m0755 /tmp/rufust-target/release/rufust \
+                /src/dist/rufust-appimage-bin
             '
       - name: Stage and package AppImage
         env:
@@ -237,9 +237,9 @@ jobs:
           RUNTIME_TAG: "20251108"
           RUNTIME_SHA256: 2fca8b443c92510f1483a883f60061ad09b46b978b2631c807cd873a47ec260d
         run: |
-          appdir="$RUNNER_TEMP/RufusLinux.AppDir"
+          appdir="$RUNNER_TEMP/Rufust.AppDir"
           packaging/appimage/stage-appdir.sh \
-            dist/rufus-linux-appimage-bin "$appdir"
+            dist/rufust-appimage-bin "$appdir"
 
           curl -fL --retry 3 \
             "https://github.com/AppImage/appimagetool/releases/download/$APPIMAGETOOL_TAG/appimagetool-x86_64.AppImage" \
@@ -253,38 +253,38 @@ jobs:
             sha256sum --check
           chmod 0755 "$RUNNER_TEMP/appimagetool"
 
-          output_name="rufus-linux-${PACKAGE_VERSION}-x86_64.AppImage"
+          output_name="rufust-${PACKAGE_VERSION}-x86_64.AppImage"
           (
             cd dist
             ARCH=x86_64 VERSION="$PACKAGE_VERSION" \
               APPIMAGE_EXTRACT_AND_RUN=1 "$RUNNER_TEMP/appimagetool" \
               --runtime-file "$RUNNER_TEMP/runtime-x86_64" \
               --updateinformation \
-              'gh-releases-zsync|NitroDiesel|rufus-linux|latest|rufus-linux-*-x86_64.AppImage.zsync' \
+              'gh-releases-zsync|NitroDiesel|rufust|latest|rufust-*-x86_64.AppImage.zsync' \
               "$appdir" "$output_name"
           )
           test -s "dist/$output_name.zsync"
-          rm dist/rufus-linux-appimage-bin
+          rm dist/rufust-appimage-bin
       - name: Verify AppImage
         run: |
-          appimage="dist/rufus-linux-${PACKAGE_VERSION}-x86_64.AppImage"
+          appimage="dist/rufust-${PACKAGE_VERSION}-x86_64.AppImage"
           packaging/appimage/verify-appimage.sh \
             "$appimage" "$PACKAGE_VERSION" 2.28
 
           set +e
           timeout 8s xvfb-run -a env APPIMAGE_EXTRACT_AND_RUN=1 \
-            "$appimage" >/tmp/rufus-appimage-gui.log 2>&1
+            "$appimage" >/tmp/rufust-appimage-gui.log 2>&1
           status=$?
           set -e
           if [ "$status" -ne 124 ]; then
-            cat /tmp/rufus-appimage-gui.log
+            cat /tmp/rufust-appimage-gui.log
             exit "$status"
           fi
 
           for image in debian:11-slim fedora:42 archlinux:base; do
             docker pull "$image"
             docker run --rm -v "$PWD/dist:/artifacts:ro" "$image" \
-              "/artifacts/rufus-linux-${PACKAGE_VERSION}-x86_64.AppImage" \
+              "/artifacts/rufust-${PACKAGE_VERSION}-x86_64.AppImage" \
               --appimage-extract-and-run --version
           done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -333,7 +333,7 @@ jobs:
           fi
           version="${tag#v}"
           cat > /tmp/release-notes.md <<'EOF'
-          Rufus Linux is a stable Linux-native release within its documented
+          Rufust is a stable Linux-native release within its documented
           capability set. It is an independent port and is not produced,
           endorsed, or supported by the upstream Rufus project.
 
@@ -344,10 +344,10 @@ jobs:
 
           Download the package for your x86_64 distribution:
 
-          - Debian/Ubuntu: `sudo apt install ./rufus-linux_*_amd64.deb`
-          - Fedora: `sudo dnf install ./rufus-linux-*.x86_64.rpm`
-          - Arch Linux: `sudo pacman -U ./rufus-linux-*-x86_64.pkg.tar.zst`
-          - Portable desktop: `chmod +x ./rufus-linux-*.AppImage && ./rufus-linux-*.AppImage`
+          - Debian/Ubuntu: `sudo apt install ./rufust_*_amd64.deb`
+          - Fedora: `sudo dnf install ./rufust-*.x86_64.rpm`
+          - Arch Linux: `sudo pacman -U ./rufust-*-x86_64.pkg.tar.zst`
+          - Portable desktop: `chmod +x ./rufust-*.AppImage && ./rufust-*.AppImage`
 
           The AppImage runs on x86_64 glibc 2.28+ desktops. If FUSE is not
           available, add `--appimage-extract-and-run`. For security, the

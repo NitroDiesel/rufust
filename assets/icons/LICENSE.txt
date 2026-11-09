@@ -1,4 +1,4 @@
-Rufus application icons (`rufus-linux-*.png`)
+Rufus application icons (`rufust-*.png`)
 
 Public Domain, courtesy of PC Unleashed
 http://pcunleashed.com

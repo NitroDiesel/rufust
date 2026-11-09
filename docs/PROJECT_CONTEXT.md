@@ -1,6 +1,6 @@
 # Project context for continuing agents
 
-This is the durable handoff for agents continuing Rufus Linux. Read it before
+This is the durable handoff for agents continuing Rufust. Read it before
 planning changes, then follow the linked specialist documents for the branch
 of work you are touching. Update this file when a release changes the baseline,
 a safety invariant changes, or a capability moves between available, blocked,
@@ -8,7 +8,7 @@ and planned.
 
 ## Product identity
 
-Rufus Linux is an independent, Linux-native port inspired by
+Rufust is an independent, Linux-native port inspired by
 [Rufus](https://github.com/pbatard/rufus). It is not produced, endorsed, or
 supported by the upstream Rufus project. Preserve that disclaimer anywhere the
 name and original public-domain Rufus icon could imply official affiliation.
@@ -18,10 +18,13 @@ Debian/Ubuntu, and Fedora. Feature parity means implementing an upstream concept
 safely on Linux; it does not mean exposing a control before its full operation
 is implemented and verified.
 
-## Current baseline: 1.0.1
+## Current baseline: 1.1.0
 
-Version 1.0.1 is the continuation baseline. Its public installers belong in the
-[v1.0.1 release](https://github.com/NitroDiesel/rufus-linux/releases/tag/v1.0.1).
+Version 1.1.0 is the continuation baseline. Its public installers belong in the
+[v1.1.0 release](https://github.com/NitroDiesel/rufust/releases/tag/v1.1.0).
+The project was named Rufus Linux (`rufus-linux`) up to 1.0.1; 1.1.0 renamed it
+to Rufust everywhere. Its packages replace `rufus-linux`, and the desktop app
+still reads preferences from `~/.config/rufus-linux` until it saves its own.
 Release titles are `v<version>`. [`PARITY.md`](PARITY.md) tracks every
 upstream Rufus feature and the order in which the rest will land.
 
@@ -92,20 +95,20 @@ Slint UI (unprivileged user)
 
 Repository ownership is divided as follows:
 
-- `apps/rufus-linux/` owns the Slint UI, user-session state, hot-plug watcher,
+- `apps/rufust/` owns the Slint UI, user-session state, hot-plug watcher,
   capability presentation, and helper client.
-- `crates/rufus-core/` owns domain types, device identity, eligibility,
+- `crates/rufust-core/` owns domain types, device identity, eligibility,
   operation planning, safety decisions, and progress types.
-- `crates/rufus-linux-platform/` owns Linux sysfs, mount, swap, holder, and
+- `crates/rufust-platform/` owns Linux sysfs, mount, swap, holder, and
   external-provider discovery.
-- `crates/rufus-image/` owns bounded image recognition and analysis.
-- `crates/rufus-helper-protocol/` owns the versioned and size-bounded NDJSON
+- `crates/rufust-image/` owns bounded image recognition and analysis.
+- `crates/rufust-helper-protocol/` owns the versioned and size-bounded NDJSON
   request/event contract.
-- `crates/rufus-helper/` owns all destructive disk operations: the udisks2
+- `crates/rufust-helper/` owns all destructive disk operations: the udisks2
   engine (`udisks.rs`, `udisks_engine.rs`, `windows_media.rs` with the bundled
   UEFI:NTFS and ms-sys boot-record assets) and the narrow privileged
   executor.
-- `crates/rufus-boot/`, `rufus-downloads/`, and `rufus-i18n/` contain planned or
+- `crates/rufust-boot/`, `rufust-downloads/`, and `rufust-i18n/` contain planned or
   partial supporting domains; their presence does not make a product flow
   available.
 - `packaging/` owns distro integration, AppImage staging/auditing, icons,
@@ -127,7 +130,7 @@ implementation details:
 - The desktop stays unprivileged. Destructive work runs only through the
   system udisks2 daemon (raw descriptors from `OpenDevice`, never by opening
   device nodes) or, as a fallback, `/usr/bin/pkexec` and the root-owned
-  `/usr/libexec/rufus-linux-helper`.
+  `/usr/libexec/rufust-helper`.
 - The helper accepts a typed allowlisted operation, never a shell command or an
   arbitrary root-owned output path.
 - Device paths are display names, not identity. Revalidate the stable path,
@@ -170,13 +173,13 @@ WS_MINIMIZEBOX` without `WS_THICKFRAME`): a fixed 560x720 logical-pixel dialog
 that can be minimized but not resized or maximized, with Drive properties,
 Format options, and Status sections. Content that does not fit, such as Expert
 options, scrolls inside the window. Tokens live in
-`apps/rufus-linux/ui/theme.slint`. The std-widgets palette cannot be restyled
+`apps/rufust/ui/theme.slint`. The std-widgets palette cannot be restyled
 in Slint 1.9, so selects, text fields, checkboxes, and the workbench scrollbar
 are custom components in `components.slint`. Selects step through choices with
 Up/Down/Home/End and open their list with Space, Enter, or Alt+Down. Preserve
 these resolved decisions:
 
-- no redundant in-content “Rufus Linux / Device Workbench” title block;
+- no redundant in-content “Rufust / Device Workbench” title block;
 - a footer bar with evenly spaced About, Advanced, Checksums, Log, and theme
   tools on the left and Close/Cancel plus the primary action on the right, as
   in upstream Rufus; image Select sits beside the boot selection, and refresh
@@ -217,7 +220,7 @@ now verifies read-only refusal and source preservation, with a separate repaired
 control. Generated fixed/dynamic 4Kn metadata variants and writer-generated
 VHD/VHDX parent chains also verify rejection without source changes. The optional
 parent-chain generator is documented under `scripts/fixtures/parent-chains/`;
-its .NET dependencies are not needed by Rufus or normal CI. Production VHD/VHDX
+its .NET dependencies are not needed by Rufust or normal CI. Production VHD/VHDX
 entry points remain blocked.
 
 Cross-distribution tests found that QEMU versions disagree on DiscUtils VHD
@@ -261,13 +264,13 @@ These are known follow-ups, not claims that the current release is broken:
   QEMU boots do not replace this gate.
 - Windows media follow-ups, in `PARITY.md` order: the Windows CA 2023
   bootloader option (needs a WIM/LZX extractor for `boot.wim`), split WIM for
-  FAT32, then non-hybrid Linux ISO file-copy with Syslinux/GRUB. Rufus Linux
+  FAT32, then non-hybrid Linux ISO file-copy with Syslinux/GRUB. Rufust
   does not rewrite `boot.wim`, so the hardware bypass always uses upstream's
   `RunSynchronous` fallback from the root `autounattend.xml`.
-- Desktop theme startup currently uses `RUFUS_LINUX_THEME` or `GTK_THEME`.
+- Desktop theme startup currently uses `RUFUST_THEME` or `GTK_THEME`.
   Portal-backed system theme detection and persistence of a manual
   system/light/dark preference remain unimplemented.
-- `rufus-i18n` contains catalog groundwork but the Slint application still has
+- `rufust-i18n` contains catalog groundwork but the Slint application still has
   hard-coded English strings. Wire one catalog source before claiming
   localization.
 - FreeDOS and Windows To Go remain visible roadmap choices that resolve to a
@@ -312,9 +315,9 @@ git diff --check
 Changes to desktop metadata or authorization also require:
 
 ```sh
-desktop-file-validate packaging/desktop/io.github.nitrodiesel.rufus-linux.desktop
-appstreamcli validate --no-net packaging/metainfo/io.github.nitrodiesel.rufus-linux.metainfo.xml
-xmllint --noout packaging/polkit/io.github.nitrodiesel.rufus-linux.policy
+desktop-file-validate packaging/desktop/io.github.nitrodiesel.rufust.desktop
+appstreamcli validate --no-net packaging/metainfo/io.github.nitrodiesel.rufust.metainfo.xml
+xmllint --noout packaging/polkit/io.github.nitrodiesel.rufust.policy
 ```
 
 The release workflow must produce one Debian package, RPM, Arch package,

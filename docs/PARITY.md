@@ -1,6 +1,6 @@
 # Upstream Rufus feature parity
 
-Goal: every upstream Rufus feature exists in Rufus Linux, implemented safely
+Goal: every upstream Rufus feature exists in Rufust, implemented safely
 on Linux. This tracker lists each upstream feature, its status here, and the
 planned order. Upstream reference: `src/rufus.rc`, `src/rufus.c`,
 `src/format.c`, `src/iso.c`, and `res/loc/rufus.loc` of
@@ -49,7 +49,7 @@ remains the authority on what a release enables.
 |---|---|---|
 | Windows installer from ISO (NTFS/exFAT + UEFI:NTFS, or FAT32) | done | 0.1.6, with BIOS boot records on MBR. |
 | Split install.wim > 4 GB on FAT32 | planned | |
-| Windows User Experience dialog: bypass TPM/Secure Boot/RAM, no online account, local account, regional options, no data collection, no BitLocker, QoL improvements, SkuSiPolicy.p7b, S-Mode | done | 1.0.0. Shown on Start for Windows 10/11 media with upstream's options per build; choices persist. The answer file is `autounattend.xml` at the media root with upstream's `RunSynchronous` bypass (upstream's own fallback), since Rufus Linux does not rewrite `boot.wim`. Includes upstream's empty `appraiserres.dll` and signed Setup wrapper for in-place upgrades. S-Mode appears while Advanced is open, like upstream's expert mode. |
+| Windows User Experience dialog: bypass TPM/Secure Boot/RAM, no online account, local account, regional options, no data collection, no BitLocker, QoL improvements, SkuSiPolicy.p7b, S-Mode | done | 1.0.0. Shown on Start for Windows 10/11 media with upstream's options per build; choices persist. The answer file is `autounattend.xml` at the media root with upstream's `RunSynchronous` bypass (upstream's own fallback), since Rufust does not rewrite `boot.wim`. Includes upstream's empty `appraiserres.dll` and signed Setup wrapper for in-place upgrades. S-Mode appears while Advanced is open, like upstream's expert mode. |
 | Silent erase-and-install option | done | 1.0.0, with the edition choice, the three acknowledgements, and the ` (SILENT)` label. |
 | Windows CA 2023 signed bootloaders | planned | Next: needs extracting `EFI_EX`/`Fonts_EX` from the LZX-compressed `boot.wim`. |
 | Windows To Go | planned | |
@@ -64,7 +64,7 @@ remains the authority on what a release enables.
 | About dialog | done | |
 | Light/dark theme | done | Linux addition. |
 | Drive capture to VHD/VHDX/ISO/FFU | planned | Needs a user-opened output descriptor. |
-| Language selection (i18n) | planned | `rufus-i18n` groundwork only. |
+| Language selection (i18n) | planned | `rufust-i18n` groundwork only. |
 | Update check | planned | Native packages update through the distribution. |
 | Settings persistence and expert/cheat-mode shortcuts | partial | Display units (0.1.8) and Windows User Experience choices (1.0.0) persist; other settings and shortcuts planned. |
 | Drag-and-drop image selection | planned | |

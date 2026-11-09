@@ -1,10 +1,12 @@
-# Maintainer: Rufus Linux contributors
-pkgname=rufus-linux
-pkgver=1.0.1
+# Maintainer: Rufust contributors
+pkgname=rufust
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Format and create bootable USB drives (Linux port inspired by Rufus)"
 arch=('x86_64' 'aarch64')
-url="https://github.com/NitroDiesel/rufus-linux"
+conflicts=('rufus-linux')
+replaces=('rufus-linux')
+url="https://github.com/NitroDiesel/rufust"
 license=('GPL-3.0-or-later')
 depends=('udisks2' 'polkit' 'util-linux' 'parted' 'dosfstools' 'exfatprogs' 'ntfsprogs'
          'e2fsprogs' 'udftools' 'qemu-img' 'libnbd' 'fontconfig' 'freetype2'
@@ -19,7 +21,7 @@ optdepends=(
 )
 makedepends=('cargo' 'rust' 'base-devel')
 # Release automation replaces the checksum when publishing a signed tag.
-source=("$pkgname-$pkgver.tar.gz::https://github.com/NitroDiesel/rufus-linux/archive/refs/tags/v$pkgver.tar.gz")
+source=("$pkgname-$pkgver.tar.gz::https://github.com/NitroDiesel/rufust/archive/refs/tags/v$pkgver.tar.gz")
 sha256sums=('SKIP')
 
 build() {
@@ -29,20 +31,20 @@ build() {
 
 package() {
   cd "$pkgname-$pkgver"
-  install -Dm755 target/release/rufus-linux "$pkgdir/usr/bin/rufus-linux"
-  install -Dm755 target/release/rufus-linux-helper "$pkgdir/usr/libexec/rufus-linux-helper"
-  install -Dm644 packaging/desktop/io.github.nitrodiesel.rufus-linux.desktop \
-    "$pkgdir/usr/share/applications/io.github.nitrodiesel.rufus-linux.desktop"
-  install -Dm644 packaging/metainfo/io.github.nitrodiesel.rufus-linux.metainfo.xml \
-    "$pkgdir/usr/share/metainfo/io.github.nitrodiesel.rufus-linux.metainfo.xml"
-  install -Dm644 packaging/polkit/io.github.nitrodiesel.rufus-linux.policy \
-    "$pkgdir/usr/share/polkit-1/actions/io.github.nitrodiesel.rufus-linux.policy"
-  install -Dm644 packaging/tmpfiles/rufus-linux.conf \
-    "$pkgdir/usr/lib/tmpfiles.d/rufus-linux.conf"
+  install -Dm755 target/release/rufust "$pkgdir/usr/bin/rufust"
+  install -Dm755 target/release/rufust-helper "$pkgdir/usr/libexec/rufust-helper"
+  install -Dm644 packaging/desktop/io.github.nitrodiesel.rufust.desktop \
+    "$pkgdir/usr/share/applications/io.github.nitrodiesel.rufust.desktop"
+  install -Dm644 packaging/metainfo/io.github.nitrodiesel.rufust.metainfo.xml \
+    "$pkgdir/usr/share/metainfo/io.github.nitrodiesel.rufust.metainfo.xml"
+  install -Dm644 packaging/polkit/io.github.nitrodiesel.rufust.policy \
+    "$pkgdir/usr/share/polkit-1/actions/io.github.nitrodiesel.rufust.policy"
+  install -Dm644 packaging/tmpfiles/rufust.conf \
+    "$pkgdir/usr/lib/tmpfiles.d/rufust.conf"
   local size
   for size in 16 24 32 48 64 128 256 512; do
-    install -Dm644 "assets/icons/rufus-linux-$size.png" \
-      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/io.github.nitrodiesel.rufus-linux.png"
+    install -Dm644 "assets/icons/rufust-$size.png" \
+      "$pkgdir/usr/share/icons/hicolor/${size}x${size}/apps/io.github.nitrodiesel.rufust.png"
   done
   install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE.txt"
   install -Dm644 assets/icons/LICENSE.txt \

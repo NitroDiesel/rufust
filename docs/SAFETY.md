@@ -4,7 +4,7 @@ The safety boundary is more important than feature parity. The desktop process m
 
 ## Process boundary
 
-Rufus Linux has two execution paths for the same versioned request. It
+Rufust has two execution paths for the same versioned request. It
 prefers the first.
 
 ```text
@@ -106,7 +106,7 @@ The packaged policy in `packaging/polkit/` authorizes a single helper entry poin
 The AppImage never supplies an executable that polkit authorizes. Portable
 user-owned bytes stay unprivileged and reach the disk only through udisks2, a
 root-owned system service. Where udisks2 is unavailable, destructive actions
-require the root-owned `/usr/libexec/rufus-linux-helper` and exact-path policy
+require the root-owned `/usr/libexec/rufust-helper` and exact-path policy
 installed by a native package; the desktop checks file ownership, write
 permissions, policy content, and the effective registered action before
 launching `pkexec`.

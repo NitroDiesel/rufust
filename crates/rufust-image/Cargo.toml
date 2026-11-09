@@ -1,0 +1,23 @@
+[package]
+name = "rufust-image"
+description = "Image identification, checksums, and analysis for Rufust"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[features]
+fixtures = []
+
+[dependencies]
+rufust-core = { path = "../rufust-core" }
+sha2 = "0.10"
+md-5 = "0.10"
+sha1 = "0.10"
+thiserror = "2"
+libc = "0.2"
