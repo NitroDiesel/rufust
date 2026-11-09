@@ -1,30 +1,30 @@
 [workspace]
 members = [
-    "apps/rufus-linux",
-    "crates/rufus-core",
-    "crates/rufus-helper-protocol",
-    "crates/rufus-linux-platform",
-    "crates/rufus-helper",
-    "crates/rufus-image",
-    "crates/rufus-boot",
-    "crates/rufus-downloads",
-    "crates/rufus-i18n",
+    "apps/rufust",
+    "crates/rufust-core",
+    "crates/rufust-helper-protocol",
+    "crates/rufust-platform",
+    "crates/rufust-helper",
+    "crates/rufust-image",
+    "crates/rufust-boot",
+    "crates/rufust-downloads",
+    "crates/rufust-i18n",
 ]
 default-members = [
-    "apps/rufus-linux",
-    "crates/rufus-core",
-    "crates/rufus-helper",
-    "crates/rufus-helper-protocol",
+    "apps/rufust",
+    "crates/rufust-core",
+    "crates/rufust-helper",
+    "crates/rufust-helper-protocol",
 ]
 resolver = "2"
 
 [workspace.package]
-version = "1.0.1"
+version = "1.1.0"
 edition = "2021"
 rust-version = "1.85"
 license = "GPL-3.0-or-later"
-authors = ["Rufus Linux contributors"]
-repository = "https://github.com/NitroDiesel/rufus-linux"
+authors = ["Rufust contributors"]
+repository = "https://github.com/NitroDiesel/rufust"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

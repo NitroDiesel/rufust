@@ -6,7 +6,7 @@ binary=$(realpath "${1:?helper test executable required}")
 [[ -f "$binary" && -x "$binary" ]]
 for tool in unshare mount umount mkfs.btrfs strace; do command -v "$tool" >/dev/null; done
 unshare --mount --propagation private bash -euo pipefail -c '
-    scratch=$(mktemp -d /tmp/rufus-snapshot-fs.XXXXXXXX)
+    scratch=$(mktemp -d /tmp/rufust-snapshot-fs.XXXXXXXX)
     scratch_mounted=0
     target_mounted=0
     cleanup() {
@@ -15,10 +15,10 @@ unshare --mount --propagation private bash -euo pipefail -c '
         rmdir "$scratch"
     }
     trap cleanup EXIT
-    mount -t tmpfs -o size=768M,mode=0700,nosuid,nodev,noexec rufus-snapshot-storage "$scratch"
+    mount -t tmpfs -o size=768M,mode=0700,nosuid,nodev,noexec rufust-snapshot-storage "$scratch"
     scratch_mounted=1
 
-    mount -t tmpfs -o size=4M,mode=0700,nosuid,nodev,noexec rufus-snapshot-small /var/tmp
+    mount -t tmpfs -o size=4M,mode=0700,nosuid,nodev,noexec rufust-snapshot-small /var/tmp
     target_mounted=1
     status=0
     "$1" --exact source_snapshot::tests::protected_snapshot_is_stable_and_read_only \

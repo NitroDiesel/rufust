@@ -1,0 +1,19 @@
+[package]
+name = "rufust-core"
+description = "Platform-neutral domain and safety model for Rufust"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"], optional = true }
+
+[features]
+default = []
+serde = ["dep:serde"]

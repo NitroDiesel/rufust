@@ -1,7 +1,7 @@
 # Generate parent-chain fixtures
 
 This optional .NET 8 tool generates VHD and VHDX differencing pairs containing
-only synthetic byte patterns. Rufus and its normal CI do not require .NET or
+only synthetic byte patterns. Rufust and its normal CI do not require .NET or
 DiscUtils. The compressed fixtures are committed separately and verified by
 the Rust provider integration test.
 
@@ -28,7 +28,7 @@ The older DiscUtils 0.16.13 VHDX differencing writer is unimplemented. The
 maintained fork's 1.0.88 VHD writer also fails when its allocation table uses
 the small stack buffer, returning a null array to the pool. The 1 GiB fixture
 uses its heap-table path while keeping physical test data small. This is a
-generator limitation, not a Rufus runtime workaround.
+generator limitation, not a Rufust runtime workaround.
 
 GUIDs, timestamps, and parent locator paths vary between runs. Regeneration is
 not bit-for-bit reproduction. Recheck the pairs and deliberately update the

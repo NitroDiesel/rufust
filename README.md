@@ -1,20 +1,20 @@
-# Rufus Linux
+# Rufust
 
-Rufus Linux is an **independent, community-built Linux port inspired by Rufus**. It provides a native desktop workflow for inspecting, formatting, and writing removable media. It is not produced, endorsed, or supported by the upstream Rufus project or its maintainers.
+Rufust is an **independent, community-built Linux port inspired by Rufus**. It provides a native desktop workflow for inspecting, formatting, and writing removable media. It is not produced, endorsed, or supported by the upstream Rufus project or its maintainers.
 
 > **Destructive operation warning**
 >
 > Writing or formatting a device permanently destroys data on that device. The application deliberately hides system disks and most USB hard disks by default, revalidates a device immediately before writing, and requires an explicit confirmation that names the target.
 
 <p align="center">
-  <img src="docs/images/rufus-linux-light.png" width="420" alt="Rufus Linux in the light theme, ready to write a Windows 11 ISO to a USB drive">
+  <img src="docs/images/rufust-light.png" width="420" alt="Rufust in the light theme, ready to write a Windows 11 ISO to a USB drive">
   &nbsp;
-  <img src="docs/images/rufus-linux-dark.png" width="420" alt="Rufus Linux in the dark theme, copying Windows installer files with size, speed, and time left">
+  <img src="docs/images/rufust-dark.png" width="420" alt="Rufust in the dark theme, copying Windows installer files with size, speed, and time left">
 </p>
 
 ## Project status
 
-Rufus Linux is a Linux-native implementation, not a rebuild of the Windows executable. It creates:
+Rufust is a Linux-native implementation, not a rebuild of the Windows executable. It creates:
 
 - Windows 10/11 installer drives from Windows ISOs. Files over 4 GB are supported through NTFS and the Secure Boot signed UEFI:NTFS loader, with BIOS boot records on MBR.
 - Bootable drives from ISOHybrid Linux ISOs, raw and compressed disk images, and VHD/VHDX.
@@ -71,7 +71,7 @@ For the full formatter and image-tool set, install the runtime dependencies list
 ## Install a release
 
 Download the package for your x86_64 distribution from
-[GitHub Releases](https://github.com/NitroDiesel/rufus-linux/releases).
+[GitHub Releases](https://github.com/NitroDiesel/rufust/releases).
 Keep `SHA256SUMS` beside the downloaded package and verify it before installing:
 
 ```sh
@@ -82,20 +82,20 @@ Install the matching native package:
 
 ```sh
 # Debian or Ubuntu
-sudo apt install ./rufus-linux_*_amd64.deb
+sudo apt install ./rufust_*_amd64.deb
 
 # Fedora
-sudo dnf install ./rufus-linux-*.x86_64.rpm
+sudo dnf install ./rufust-*.x86_64.rpm
 
 # Arch Linux
-sudo pacman -U ./rufus-linux-*-x86_64.pkg.tar.zst
+sudo pacman -U ./rufust-*-x86_64.pkg.tar.zst
 ```
 
 Or run the portable desktop build on an x86_64 glibc 2.28+ system:
 
 ```sh
-chmod +x ./rufus-linux-*-x86_64.AppImage
-./rufus-linux-*-x86_64.AppImage
+chmod +x ./rufust-*-x86_64.AppImage
+./rufust-*-x86_64.AppImage
 ```
 
 If FUSE is unavailable, launch it with `--appimage-extract-and-run`. The
@@ -118,12 +118,12 @@ Distribution packages should use these paths:
 
 | Artifact | Destination |
 |---|---|
-| Desktop application | `/usr/bin/rufus-linux` |
-| Privileged helper | `/usr/libexec/rufus-linux-helper` |
-| Desktop entry | `/usr/share/applications/io.github.nitrodiesel.rufus-linux.desktop` |
-| AppStream metadata | `/usr/share/metainfo/io.github.nitrodiesel.rufus-linux.metainfo.xml` |
-| Polkit policy | `/usr/share/polkit-1/actions/io.github.nitrodiesel.rufus-linux.policy` |
-| Runtime directory rule | `/usr/lib/tmpfiles.d/rufus-linux.conf` |
+| Desktop application | `/usr/bin/rufust` |
+| Privileged helper | `/usr/libexec/rufust-helper` |
+| Desktop entry | `/usr/share/applications/io.github.nitrodiesel.rufust.desktop` |
+| AppStream metadata | `/usr/share/metainfo/io.github.nitrodiesel.rufust.metainfo.xml` |
+| Polkit policy | `/usr/share/polkit-1/actions/io.github.nitrodiesel.rufust.policy` |
+| Runtime directory rule | `/usr/lib/tmpfiles.d/rufust.conf` |
 
 The helper path is a packaging contract. Until the helper is present, packages must not install the polkit policy or imply that destructive operations are available.
 
@@ -146,6 +146,6 @@ The helper path is a packaging contract. Until the helper is present, packages m
 
 ## License and attribution
 
-Rufus Linux is licensed under the GNU General Public License version 3. See [LICENSE.txt](LICENSE.txt). The upstream Rufus source is also GPLv3; derivative portions must retain their copyright notices and corresponding source. See [THIRD_PARTY.md](THIRD_PARTY.md) for dependency and asset obligations.
+Rufust is licensed under the GNU General Public License version 3. See [LICENSE.txt](LICENSE.txt). The upstream Rufus source is also GPLv3; derivative portions must retain their copyright notices and corresponding source. See [THIRD_PARTY.md](THIRD_PARTY.md) for dependency and asset obligations.
 
 “Rufus” is used descriptively to identify the project this independent port is based on. Its name and branding are not a claim of upstream affiliation.

@@ -31,7 +31,7 @@ without a window manager on a private display:
 ```sh
 timeout 90s xvfb-run -a -s '-screen 0 2200x1800x24' \
   dbus-run-session bash scripts/ci/desktop-render.sh \
-  target/release/rufus-linux target/ui-validation/ci
+  target/release/rufust target/ui-validation/ci
 ```
 
 It launches only the unprivileged GUI, captures light/dark frames at three
@@ -74,7 +74,7 @@ or `qemu-img libnbd` on Fedora/Arch. `bzip2` remains test-only. Host tools also
 enable read-only desktop capacity inspection; writing additionally needs
 `nbdcopy`. AppImage users supply the host display stack; writes go through the
 host's udisks2. Run the desktop
-preview test as a non-root user with `cargo test -p rufus-linux
+preview test as a non-root user with `cargo test -p rufust
 desktop_virtual_preview --locked -- --ignored`. See
 [`VIRTUAL_DISKS.md`](VIRTUAL_DISKS.md) for remaining boot and physical-media
 gates.
@@ -98,16 +98,16 @@ The exact binaries depend on the final workspace layout. A conventional staged i
 
 ```sh
 cargo build --release --locked
-install -Dm0755 target/release/rufus-linux "$DESTDIR/usr/bin/rufus-linux"
-install -Dm0755 target/release/rufus-linux-helper "$DESTDIR/usr/libexec/rufus-linux-helper"
-install -Dm0644 packaging/desktop/io.github.nitrodiesel.rufus-linux.desktop \
-  "$DESTDIR/usr/share/applications/io.github.nitrodiesel.rufus-linux.desktop"
-install -Dm0644 packaging/metainfo/io.github.nitrodiesel.rufus-linux.metainfo.xml \
-  "$DESTDIR/usr/share/metainfo/io.github.nitrodiesel.rufus-linux.metainfo.xml"
-install -Dm0644 packaging/polkit/io.github.nitrodiesel.rufus-linux.policy \
-  "$DESTDIR/usr/share/polkit-1/actions/io.github.nitrodiesel.rufus-linux.policy"
-install -Dm0644 packaging/tmpfiles/rufus-linux.conf \
-  "$DESTDIR/usr/lib/tmpfiles.d/rufus-linux.conf"
+install -Dm0755 target/release/rufust "$DESTDIR/usr/bin/rufust"
+install -Dm0755 target/release/rufust-helper "$DESTDIR/usr/libexec/rufust-helper"
+install -Dm0644 packaging/desktop/io.github.nitrodiesel.rufust.desktop \
+  "$DESTDIR/usr/share/applications/io.github.nitrodiesel.rufust.desktop"
+install -Dm0644 packaging/metainfo/io.github.nitrodiesel.rufust.metainfo.xml \
+  "$DESTDIR/usr/share/metainfo/io.github.nitrodiesel.rufust.metainfo.xml"
+install -Dm0644 packaging/polkit/io.github.nitrodiesel.rufust.policy \
+  "$DESTDIR/usr/share/polkit-1/actions/io.github.nitrodiesel.rufust.policy"
+install -Dm0644 packaging/tmpfiles/rufust.conf \
+  "$DESTDIR/usr/lib/tmpfiles.d/rufust.conf"
 ```
 
 If the helper is not built, omit the helper, polkit policy, and tmpfiles rule. The desktop then writes only through udisks2 and never attempts raw access itself.
@@ -116,10 +116,10 @@ The udisks2 integration test drives the real daemon on loop devices it creates
 (no root, no real disks). Run it from an active desktop session:
 
 ```sh
-cargo test -p rufus-helper loop_devices -- --ignored
+cargo test -p rufust-helper loop_devices -- --ignored
 ```
 
-Set `RUFUS_TEST_KEEP_DIR` (and optionally `RUFUS_TEST_EFI_APP`) to keep the
+Set `RUFUST_TEST_KEEP_DIR` (and optionally `RUFUST_TEST_EFI_APP`) to keep the
 resulting Windows-layout disk images for OVMF/SeaBIOS boot checks.
 
 ## AppImage
@@ -128,9 +128,9 @@ Build the AppImage GUI on the pinned Rocky Linux 8 baseline used by the release
 workflow, then stage and verify it with:
 
 ```sh
-packaging/appimage/stage-appdir.sh target/release/rufus-linux RufusLinux.AppDir
-appimagetool --runtime-file runtime-x86_64 RufusLinux.AppDir rufus-linux.AppImage
-packaging/appimage/verify-appimage.sh rufus-linux.AppImage 1.0.1 2.28
+packaging/appimage/stage-appdir.sh target/release/rufust Rufust.AppDir
+appimagetool --runtime-file runtime-x86_64 Rufust.AppDir rufust.AppImage
+packaging/appimage/verify-appimage.sh rufust.AppImage 1.1.0 2.28
 ```
 
 The release workflow supplies SHA-verified appimagetool and type-2 runtime

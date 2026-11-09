@@ -7,5 +7,5 @@ apt-get install -y --no-install-recommends pkg-config libfontconfig1-dev \
   dosfstools qemu-utils libnbd-bin bzip2
 cargo build --workspace --release --locked
 cargo test --workspace --locked
-cargo test -p rufus-helper providers_roundtrip --locked -- --ignored
-cargo test -p rufus-helper protected_snapshot --locked -- --ignored
+cargo test -p rufust-helper providers_roundtrip --locked -- --ignored
+cargo test -p rufust-helper protected_snapshot --locked -- --ignored

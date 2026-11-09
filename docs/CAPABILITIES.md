@@ -1,13 +1,13 @@
 # Capability and compatibility matrix
 
-Rufus Linux preserves upstream concepts where Linux has a safe implementation. It does not claim that a visible option works until it can be completed end to end. **Available** means enabled in this release; **blocked** means the input is recognized but Start remains disabled with a reason; **planned** means no complete product flow exists yet.
+Rufust preserves upstream concepts where Linux has a safe implementation. It does not claim that a visible option works until it can be completed end to end. **Available** means enabled in this release; **blocked** means the input is recognized but Start remains disabled with a reason; **planned** means no complete product flow exists yet.
 
 ## Available in 1.0
 
 | Capability | Linux implementation | Notes |
 |---|---|---|
 | Removable-device discovery | Linux sysfs and `/proc/self/mountinfo` | Automatic hotplug refresh plus a manual fallback; root, boot, home, read-only, held and unstable targets are rejected. USB HDDs and fixed disks are explicit expert opt-ins. |
-| Authorized destructive operations | The system udisks2 daemon, driven as the desktop user; the short-lived `/usr/libexec/rufus-linux-helper` through `pkexec` where udisks2 is not running | Nothing of ours runs as root on the udisks2 path. udisks2 applies its own polkit policy: partitioning, formatting, and mounting a removable drive need no password on an active local session; opening the raw device (image writes, bad-block tests, BIOS boot code) asks once. Target identity is resolved again immediately before writing. |
+| Authorized destructive operations | The system udisks2 daemon, driven as the desktop user; the short-lived `/usr/libexec/rufust-helper` through `pkexec` where udisks2 is not running | Nothing of ours runs as root on the udisks2 path. udisks2 applies its own polkit policy: partitioning, formatting, and mounting a removable drive need no password on an active local session; opening the raw device (image writes, bad-block tests, BIOS boot code) asks once. Target identity is resolved again immediately before writing. |
 | Raw image write | Bounded streaming copy to an exclusively locked target | Supports `.img`, `.raw`, and other raw disk images. Source size, target identity and target capacity are rechecked. |
 | ISOHybrid disk-image write | Same raw writer | Hybrid ISO media is written byte-for-byte. |
 | Windows installer media | In-process UDF/ISO 9660 extraction onto udisks2-created partitions | Upstream layout: NTFS or exFAT plus a 1 MiB UEFI:NTFS partition (GPT basic data named `UEFI:NTFS` with the no-drive-letter attribute, or MBR type 0xEF), or a single FAT32 partition when every file fits. MBR "BIOS or UEFI" adds the Windows 7 MBR, an active partition, and the ms-sys NTFS/FAT32 boot record. Every copied file is hashed and read back. Needs udisks2. |
@@ -43,6 +43,16 @@ Rufus Linux preserves upstream concepts where Linux has a safe implementation. I
 | UEFI runtime validation and Secure Boot revocation checks | Verified payload, SBAT/SVN/DBX parsing and signed update data are not packaged. |
 | Drive capture | Root must write through a user-opened file descriptor; arbitrary root-owned output paths are intentionally rejected. |
 
+## Changes in 1.1.0
+
+Rufus Linux is renamed **Rufust**: the application, binaries (`rufust`,
+`rufust-helper`), crates, desktop ID `io.github.nitrodiesel.rufust`, polkit
+policy, packages, and repository. The Debian, Fedora, and Arch packages replace
+an installed `rufus-linux`, AppStream lists the old ID under `<replaces>`, and
+preferences saved under `~/.config/rufus-linux` are read when no Rufust
+settings exist yet. The default volume label is now `RUFUST`. No feature
+changed.
+
 ## Changes in 1.0.1
 
 The Status card's size menu adds binary KiB, MiB and GiB. KB, MB and GB are
@@ -70,7 +80,7 @@ size, transfer rate, and time left, such as
 `380.2 MB / 8.42 GB · 40.0 MB/s · 3:26 left`; other stages read "Step 3 of 7".
 The Size (Auto, Bytes, KB, MB, GB) and Speed (KB/s, Kbps, MB/s, Mbps, GB/s,
 Gbps) choices in the Status header persist in
-`$XDG_CONFIG_HOME/rufus-linux/settings.conf`. Byte multiples are binary, like
+`$XDG_CONFIG_HOME/rufust/settings.conf`. Byte multiples are binary, like
 the device list; bit rates are decimal, as network speeds are quoted.
 
 ## Changes in 0.1.7

@@ -3274,23 +3274,40 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
 
 [[package]]
-name = "rufus-boot"
-version = "1.0.1"
+name = "rufust"
+version = "1.1.0"
 dependencies = [
- "rufus-core",
+ "ashpd",
+ "i-slint-backend-winit",
+ "libc",
+ "pollster",
+ "rufust-core",
+ "rufust-helper",
+ "rufust-helper-protocol",
+ "rufust-image",
+ "rufust-platform",
+ "slint",
+ "slint-build",
+]
+
+[[package]]
+name = "rufust-boot"
+version = "1.1.0"
+dependencies = [
+ "rufust-core",
  "thiserror 2.0.19",
 ]
 
 [[package]]
-name = "rufus-core"
-version = "1.0.1"
+name = "rufust-core"
+version = "1.1.0"
 dependencies = [
  "serde",
 ]
 
 [[package]]
-name = "rufus-downloads"
-version = "1.0.1"
+name = "rufust-downloads"
+version = "1.1.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -3299,68 +3316,51 @@ dependencies = [
 ]
 
 [[package]]
-name = "rufus-helper"
-version = "1.0.1"
+name = "rufust-helper"
+version = "1.1.0"
 dependencies = [
  "fs2",
  "libc",
- "rufus-core",
- "rufus-helper-protocol",
- "rufus-image",
- "rufus-linux-platform",
+ "rufust-core",
+ "rufust-helper-protocol",
+ "rufust-image",
+ "rufust-platform",
  "sha2",
  "thiserror 2.0.19",
  "zbus",
 ]
 
 [[package]]
-name = "rufus-helper-protocol"
-version = "1.0.1"
+name = "rufust-helper-protocol"
+version = "1.1.0"
 dependencies = [
- "rufus-core",
+ "rufust-core",
  "serde",
  "serde_json",
  "thiserror 2.0.19",
 ]
 
 [[package]]
-name = "rufus-i18n"
-version = "1.0.1"
+name = "rufust-i18n"
+version = "1.1.0"
 
 [[package]]
-name = "rufus-image"
-version = "1.0.1"
+name = "rufust-image"
+version = "1.1.0"
 dependencies = [
  "libc",
  "md-5",
- "rufus-core",
+ "rufust-core",
  "sha1",
  "sha2",
  "thiserror 2.0.19",
 ]
 
 [[package]]
-name = "rufus-linux"
-version = "1.0.1"
+name = "rufust-platform"
+version = "1.1.0"
 dependencies = [
- "ashpd",
- "i-slint-backend-winit",
- "libc",
- "pollster",
- "rufus-core",
- "rufus-helper",
- "rufus-helper-protocol",
- "rufus-image",
- "rufus-linux-platform",
- "slint",
- "slint-build",
-]
-
-[[package]]
-name = "rufus-linux-platform"
-version = "1.0.1"
-dependencies = [
- "rufus-core",
+ "rufust-core",
 ]
 
 [[package]]

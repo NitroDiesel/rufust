@@ -6,7 +6,7 @@ This file is a packaging checklist, not a substitute for the license texts shipp
 
 Portions derived from the Rufus source tree are licensed under **GPL-3.0-or-later**. Preserve upstream copyright headers, the GPL text, modification notices, and complete corresponding source. The upstream project name and logo may also be subject to trademark rules separate from the GPL.
 
-The application icons under `assets/icons/rufus-linux-*.png` are unmodified,
+The application icons under `assets/icons/rufust-*.png` are unmodified,
 independently sized copies of upstream Rufus `res/icons/rufus-*.png`, anchored
 to upstream content commit `2d63a109200a6921d803f824e8d4fee08ff9bd78`.
 Upstream's asset-specific notice places `rufus*.*` in the **Public Domain**,
@@ -18,13 +18,13 @@ description, and application About text.
 
 The helper's test-only VHDX journal fixture comes from QEMU iotest 070,
 Copyright 2013 Red Hat, Inc., GPL-2.0-or-later. Its exact source, digest, and
-license are recorded in `crates/rufus-helper/tests/fixtures/README.md` and
+license are recorded in `crates/rufust-helper/tests/fixtures/README.md` and
 `COPYING.QEMU` in that directory. It is not included in installed binaries.
 
 The parent-chain fixtures in the same directory contain project-generated
 synthetic bytes. Their optional generator uses the MIT-licensed LTRData
 DiscUtils writer, pinned with dependency hashes and source provenance under
-`scripts/fixtures/parent-chains/`. No .NET or DiscUtils binary is shipped in Rufus.
+`scripts/fixtures/parent-chains/`. No .NET or DiscUtils binary is shipped in Rufust.
 
 ## Expected system dependencies
 
@@ -52,21 +52,21 @@ License versions above are orientation only. The installed package's license met
 
 ## Bundled boot assets
 
-- `crates/rufus-helper/assets/uefi-ntfs/`: the unchanged contents of upstream
+- `crates/rufust-helper/assets/uefi-ntfs/`: the unchanged contents of upstream
   Rufus `res/uefi/uefi-ntfs.img` (SHA-256
   `72683fa1250eeea772d3399277b434d4e55ba8dd0dc926e52d817e701fc2eb9e`):
   Secure Boot signed UEFI:NTFS 2.8 bootloaders and ntfs-3g 1.9 drivers
   (GPL-2.0-or-later) and EfiFs 1.12 exFAT drivers (GPL-3.0). Sources:
   <https://github.com/pbatard/uefi-ntfs>, <https://github.com/pbatard/efifs>.
   Per-file digests are in `PROVENANCE.md` there; a unit test pins them.
-- `crates/rufus-helper/assets/ms-sys/`: Windows 7 MBR and NTFS/FAT32 boot
+- `crates/rufust-helper/assets/ms-sys/`: Windows 7 MBR and NTFS/FAT32 boot
   record byte arrays from upstream Rufus `src/ms-sys/inc/` (ms-sys,
   GPL-2.0-or-later), converted unchanged; see `PROVENANCE.md` there.
-- `crates/rufus-helper/assets/setup/`: upstream Rufus's signed Windows 11
+- `crates/rufust-helper/assets/setup/`: upstream Rufus's signed Windows 11
   Setup wrapper (`res/setup/setup_x64.exe`, `setup_arm64.exe`) and its source
   `setup.c` (GPL-3.0-or-later), unchanged. Digests are in `PROVENANCE.md`
   there; a unit test pins them.
-- `apps/rufus-linux/assets/windows-zones.txt`: IANA to Windows time zone
+- `apps/rufust/assets/windows-zones.txt`: IANA to Windows time zone
   names from Unicode CLDR `windowsZones.xml` (Unicode License v3), with
   aliases from the IANA tz database's links (public domain).
 

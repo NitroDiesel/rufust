@@ -9,7 +9,7 @@ images remain rejected.
 
 ## Tested implementation
 
-`crates/rufus-helper/src/virtual_disk.rs` uses `nbdinfo --size` and `nbdcopy`
+`crates/rufust-helper/src/virtual_disk.rs` uses `nbdinfo --size` and `nbdcopy`
 with a read-only `qemu-nbd` subprocess. Each subprocess receives the bound
 source descriptor as stdin. Fixed QEMU options select `vpc` or `vhdx` over the
 `file` driver at `/proc/self/fd/0`. There are no user-supplied QEMU options,
@@ -83,7 +83,7 @@ repair or prove every journal state is rejected.
 Run it with:
 
 ```sh
-cargo test -p rufus-helper providers_roundtrip --locked -- --ignored
+cargo test -p rufust-helper providers_roundtrip --locked -- --ignored
 ```
 
 This test requires QEMU, libnbd tools, and test-only `bzip2`. CI runs it on
@@ -139,7 +139,7 @@ then overlays `/var/tmp` only inside that namespace:
   checks unchanged snapshot bytes after source edits and denied decoder writes.
 
 ```sh
-sudo bash scripts/ci/snapshot-filesystems.sh target/debug/deps/rufus_helper-<test-hash>
+sudo bash scripts/ci/snapshot-filesystems.sh target/debug/deps/rufust_helper-<test-hash>
 ```
 
 This requires `btrfs-progs`, `strace`, mount namespace support, and Btrfs kernel
@@ -160,7 +160,7 @@ file consumes all but 512 KiB, forcing the following 1 MiB write to fail.
 Run it after compiling the helper tests:
 
 ```sh
-sudo bash scripts/ci/snapshot-enospc.sh target/debug/deps/rufus_helper-<test-hash>
+sudo bash scripts/ci/snapshot-enospc.sh target/debug/deps/rufust_helper-<test-hash>
 ```
 
 On 2026-09-13, both the normal and traced runs passed. `strace` recorded a
@@ -287,9 +287,9 @@ expanded image that does not fit the target. The `confirmation-preview`
 example can open the dialog without device discovery or helper callbacks:
 
 ```sh
-cargo run -p rufus-linux --example confirmation-preview
-cargo run -p rufus-linux --example confirmation-preview -- --format
-cargo run -p rufus-linux --example confirmation-preview -- --long
+cargo run -p rufust --example confirmation-preview
+cargo run -p rufust --example confirmation-preview -- --format
+cargo run -p rufust --example confirmation-preview -- --long
 ```
 
 A disposable-device UI smoke test is still required before a release.
@@ -331,7 +331,7 @@ artifacts, not a dependency of the cloud-agent workflow.
   [QEMU VHDX reader](https://github.com/qemu/qemu/blob/v10.0.0/block/vhdx.c).
 
 - [QEMU journal fixture provenance](https://github.com/qemu/qemu/commit/e78835b722eb26f5a56370166e99b69e9751ea2a),
-  pinned locally with its digest and license in `crates/rufus-helper/tests/fixtures/`.
+  pinned locally with its digest and license in `crates/rufust-helper/tests/fixtures/`.
   The full provider suite passed as both the desktop user and root with dropped
   provider privileges on 2026-09-12, alongside 80 regular workspace tests and Clippy.
 

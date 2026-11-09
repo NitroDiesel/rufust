@@ -48,10 +48,10 @@ for theme in light dark; do
     [[ "$theme" != dark ]] || canvas=0A0A0A
     for scale in 1 1.25 2; do
         env -u WAYLAND_DISPLAY SLINT_BACKEND=winit-gl SLINT_SCALE_FACTOR="$scale" \
-            WINIT_X11_SCALE_FACTOR=1 LIBGL_ALWAYS_SOFTWARE=1 RUFUS_LINUX_THEME="$theme" \
+            WINIT_X11_SCALE_FACTOR=1 LIBGL_ALWAYS_SOFTWARE=1 RUFUST_THEME="$theme" \
             "$binary" &
         app_pid=$!
-        window=$(timeout 15s xdotool search --sync --onlyvisible --pid "$app_pid" --name '^Rufus Linux$' | head -n 1)
+        window=$(timeout 15s xdotool search --sync --onlyvisible --pid "$app_pid" --name '^Rufust$' | head -n 1)
         sleep 2
         case "$scale" in
             1) startup_size=560x720 ;;

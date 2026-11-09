@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Rufust
+GenericName=USB Media Writer
+Comment=Format and create bootable USB drives
+Exec=rufust
+Icon=io.github.nitrodiesel.rufust
+Terminal=false
+Categories=System;Filesystem;
+Keywords=usb;iso;boot;format;flash;
+StartupNotify=true

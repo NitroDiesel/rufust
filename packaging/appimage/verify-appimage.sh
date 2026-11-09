@@ -15,16 +15,16 @@ trap 'rm -rf -- "$workdir"' EXIT HUP INT TERM
 test -x "$appimage"
 test -s "$appimage.zsync"
 actual=$(APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" --version)
-test "$actual" = "rufus-linux $version"
+test "$actual" = "rufust $version"
 update_information=$("$appimage" --appimage-updateinformation)
 test "$update_information" = \
-    'gh-releases-zsync|NitroDiesel|rufus-linux|latest|rufus-linux-*-x86_64.AppImage.zsync'
+    'gh-releases-zsync|NitroDiesel|rufust|latest|rufust-*-x86_64.AppImage.zsync'
 
-spaced="$workdir/Rufus Linux $version.AppImage"
+spaced="$workdir/Rufust $version.AppImage"
 cp "$appimage" "$spaced"
 chmod 0755 "$spaced"
 actual=$(APPIMAGE_EXTRACT_AND_RUN=1 "$spaced" --version)
-test "$actual" = "rufus-linux $version"
+test "$actual" = "rufust $version"
 
 mkdir "$workdir/extract"
 (cd "$workdir/extract" && "$appimage" --appimage-extract >/dev/null)
@@ -33,26 +33,26 @@ appdir="$workdir/extract/squashfs-root"
 for required in \
     AppRun \
     .DirIcon \
-    io.github.nitrodiesel.rufus-linux.desktop \
-    io.github.nitrodiesel.rufus-linux.png \
-    usr/bin/rufus-linux \
-    usr/share/applications/io.github.nitrodiesel.rufus-linux.desktop \
-    usr/share/metainfo/io.github.nitrodiesel.rufus-linux.metainfo.xml \
-    usr/share/licenses/rufus-linux/LICENSE.txt; do
+    io.github.nitrodiesel.rufust.desktop \
+    io.github.nitrodiesel.rufust.png \
+    usr/bin/rufust \
+    usr/share/applications/io.github.nitrodiesel.rufust.desktop \
+    usr/share/metainfo/io.github.nitrodiesel.rufust.metainfo.xml \
+    usr/share/licenses/rufust/LICENSE.txt; do
     test -e "$appdir/$required"
 done
 
-test ! -e "$appdir/usr/libexec/rufus-linux-helper"
+test ! -e "$appdir/usr/libexec/rufust-helper"
 test ! -e "$appdir/usr/share/polkit-1"
 test -z "$(find "$appdir" -xdev -type f -perm /6000 -print -quit)"
 test -z "$(find "$appdir" -xdev -type f -perm /0022 -print -quit)"
 
-if readelf -d "$appdir/usr/bin/rufus-linux" | grep -Eq 'RPATH|RUNPATH'; then
+if readelf -d "$appdir/usr/bin/rufust" | grep -Eq 'RPATH|RUNPATH'; then
     echo "AppImage GUI must not contain RPATH or RUNPATH" >&2
     exit 1
 fi
 
-readelf -d "$appdir/usr/bin/rufus-linux" |
+readelf -d "$appdir/usr/bin/rufust" |
     sed -n 's/.*Shared library: \[\(.*\)\]/\1/p' |
     while IFS= read -r library; do
         case "$library" in
@@ -65,11 +65,11 @@ readelf -d "$appdir/usr/bin/rufus-linux" |
     done
 
 if command -v file >/dev/null 2>&1; then
-    file "$appdir/usr/bin/rufus-linux" | grep -q 'x86-64'
+    file "$appdir/usr/bin/rufust" | grep -q 'x86-64'
 fi
 
 required_glibc=$(
-    readelf --version-info "$appdir/usr/bin/rufus-linux" |
+    readelf --version-info "$appdir/usr/bin/rufust" |
         grep -o 'GLIBC_[0-9][0-9.]*' |
         sed 's/^GLIBC_//' |
         sort -Vu |
@@ -84,11 +84,11 @@ fi
 
 if command -v desktop-file-validate >/dev/null 2>&1; then
     desktop-file-validate \
-        "$appdir/usr/share/applications/io.github.nitrodiesel.rufus-linux.desktop"
+        "$appdir/usr/share/applications/io.github.nitrodiesel.rufust.desktop"
 fi
 if command -v appstreamcli >/dev/null 2>&1; then
     appstreamcli validate --no-net \
-        "$appdir/usr/share/metainfo/io.github.nitrodiesel.rufus-linux.metainfo.xml"
+        "$appdir/usr/share/metainfo/io.github.nitrodiesel.rufust.metainfo.xml"
 fi
 
 printf 'verified %s (maximum required GLIBC_%s)\n' "$appimage" "$required_glibc"
