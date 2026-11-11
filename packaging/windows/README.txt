@@ -5,7 +5,9 @@ Rufust is an independent, community-built Linux and Windows port inspired by
 Rufus. It is not produced, endorsed, or supported by the upstream Rufus
 project or its maintainers.
 
-Run rufust.exe. Nothing is installed. Windows 10 or 11 (x64) is required.
+Windows 10 or 11 (x64) is required. The installer puts rufust.exe in
+Program Files with a Start menu entry; remove it from Settings > Apps. The
+portable zip installs nothing: extract it and run rufust.exe.
 
 The window runs with your normal rights. When you press Start and confirm,
 Windows asks once for administrator approval for that operation only; the
@@ -31,7 +33,7 @@ The executable is not code-signed yet, so Windows SmartScreen may ask you to
 confirm the first launch. Verify the download against SHA256SUMS from the
 release page:
 
-  Get-FileHash .\rufust-*-windows-x86_64.zip -Algorithm SHA256
+  Get-FileHash .\rufust-*-windows-x86_64* -Algorithm SHA256
 
 Source, documentation, and issues: https://github.com/NitroDiesel/rufust
 License: GNU General Public License version 3 (LICENSE.txt). Third-party

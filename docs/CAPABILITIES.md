@@ -63,6 +63,7 @@ applies.
 | Windows installer media | Same layout and boot records | The MBR UEFI:NTFS partition becomes type 0xEF once its files are in. Copied files are read back after a dismount. |
 | Bad-block test, verification, cancellation | Built into the engine | Cancellation is a `cancel` line on the control pipe or the window closing it. |
 | Light and dark presentation | Same Slint workbench | Follows the Windows app mode; `%APPDATA%\Rufust\settings.conf`. |
+| Installer | `rufust-<version>-windows-x86_64-setup.exe` (Inno Setup) | Per-machine install into Program Files with a Start menu entry and uninstaller; not code-signed yet. |
 | Portable desktop | `rufust-<version>-windows-x86_64.zip` | One executable with an `asInvoker` manifest; not code-signed yet. |
 
 Blocked only on Windows: ext2/3/4 creation (no Windows formatter) and ReFS
@@ -77,7 +78,9 @@ unprivileged and each operation runs in an elevated copy of itself after one
 UAC approval. Elevated tests on throwaway VHDX disks format with every
 provider and scheme, write raw, gzip, and VHDX images with read-back
 verification, build Windows installer media, run large FAT32, and cancel
-through the worker pipes. Linux behavior is unchanged.
+through the worker pipes. Releases include a Windows installer
+(`rufust-<version>-windows-x86_64-setup.exe`) and a portable zip. Linux
+behavior is unchanged.
 
 ## Changes in 1.1.0
 

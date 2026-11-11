@@ -107,7 +107,9 @@ the window's pipe launcher including cancellation); discovery and the VHD
 capacity preview pass under a non-administrator token; and the release build
 renders the workbench in the fixed 560x720 window. CI runs these on
 `windows-2022`, and the release workflow adds
-`rufust-<version>-windows-x86_64.zip`. No release containing Windows support
+`rufust-<version>-windows-x86_64-setup.exe` (Inno Setup, verified by a silent
+install and uninstall) and the portable `rufust-<version>-windows-x86_64.zip`.
+No release containing Windows support
 has been published yet; the next version bump publishes the first one.
 
 ## Architecture map

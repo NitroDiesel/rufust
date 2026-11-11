@@ -139,6 +139,8 @@ The window never runs elevated and never opens a disk; disk discovery opens
 devices with no access rights. Each operation needs its own UAC approval, and
 declining writes nothing. Virtual disks are never listed as targets. The
 worker runs the bytes of the executable the user started, as upstream Rufus
-does; Authenticode signing of releases is an open gate. Compressed images are
+does. The installer puts that executable in Program Files, where only
+administrators can replace it, and starts the app after setup as the original
+user, never elevated. Authenticode signing of releases is an open gate. Compressed images are
 decoded in the elevated worker, so only memory-safe Rust decoders are used
 there. Formatting uses Windows' own file system providers.

@@ -164,3 +164,15 @@ The release workflow's Windows job packages
 the reported version, the x86-64 PE machine, and the embedded `asInvoker`
 manifest before the zip joins `SHA256SUMS` and the build provenance. Do not
 ship a manifest that requests elevation: the window must stay unprivileged.
+
+The same job compiles `packaging/windows/rufust.iss` with Inno Setup 6 into
+`rufust-<version>-windows-x86_64-setup.exe`, then installs it silently, checks
+the installed files, Start menu entry, and uninstall entry, and uninstalls it
+again. To build the installer yourself after the release build:
+
+```powershell
+$icon = (Get-ChildItem target\release\build\rufust-*\out\rufust.ico)[0].FullName
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersion=1.1.0 "/DIconFile=$icon" packaging\windows\rufust.iss
+```
+
+The installer lands in `dist\`.

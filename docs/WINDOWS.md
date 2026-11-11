@@ -30,7 +30,7 @@ rufust.exe --elevated-worker <name> (elevated, no window)
 ```
 
 The worker is the desktop executable itself, so the portable download is one
-file, like upstream Rufus. `rufust-helper.exe --execute-pipe <name>` serves the
+file, like upstream Rufus, and the installer installs just that file. `rufust-helper.exe --execute-pipe <name>` serves the
 same pipes and is what the automated tests launch. Declining UAC writes
 nothing. Pipe names accept only letters, digits, and `-`.
 
@@ -132,10 +132,23 @@ cancellation. CI runs them on every push.
 
 ## Packaging
 
-The release workflow builds `rufust-<version>-windows-x86_64.zip` containing
+The release workflow builds two downloads with the same four files:
 `rufust.exe`, `README.txt` (from `packaging/windows/`), `LICENSE.txt`, and
-`THIRD_PARTY.md`, checks the PE machine and the `asInvoker` manifest, and adds
-it to `SHA256SUMS` and the build provenance. The executable is not
+`THIRD_PARTY.md`.
+
+- `rufust-<version>-windows-x86_64.zip`: portable, nothing installed.
+- `rufust-<version>-windows-x86_64-setup.exe`: an Inno Setup installer
+  (`packaging/windows/rufust.iss`). It installs per machine into Program Files
+  with a Start menu entry, an optional desktop icon, and an uninstaller.
+  Because only administrators can write to Program Files, a standard user
+  cannot replace the executable that the elevated worker runs. Setup itself
+  is elevated, so its "Launch Rufust" option starts the app as the original
+  user (`runasoriginaluser`); the window never runs elevated. Uninstalling
+  keeps `%APPDATA%\Rufust\settings.conf`.
+
+The job checks the PE machine and the `asInvoker` manifest, installs and
+uninstalls the installer silently, and adds both files to `SHA256SUMS` and the
+build provenance. Neither the executable nor the installer is
 Authenticode-signed yet, so SmartScreen may warn on first launch.
 
 ## Open gates
@@ -144,6 +157,6 @@ Authenticode-signed yet, so SmartScreen may warn on first launch.
   format, image write, Windows media, verification, cancellation, and
   unplugging during a write. Virtual disks do not replace it.
 - Boot tests of Windows-built media in QEMU/OVMF and on hardware.
-- Authenticode signing of release executables.
+- Authenticode signing of release executables and the installer.
 - ext2/3/4 and ReFS creation, drive capture, and the other features blocked
   on Linux remain blocked here.

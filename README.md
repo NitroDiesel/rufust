@@ -29,7 +29,7 @@ The goal is output compatibility where each platform has a safe, maintained impl
 - Native Slint desktop interface on Wayland, X11, and Windows, with light and dark themes that follow the system.
 - Automatic sysfs-backed device discovery with mount and device-holder safety checks.
 - Plug and play: writes go through the system udisks2 service, so nothing extra has to be installed. A small polkit-authorized helper is the fallback.
-- On Windows: a single portable `rufust.exe`. The window stays unprivileged; each operation runs in an elevated worker after one UAC approval, using Windows' own partitioning and file system providers plus a built-in large-FAT32 formatter.
+- On Windows: an installer or a single portable `rufust.exe`. The window stays unprivileged; each operation runs in an elevated worker after one UAC approval, using Windows' own partitioning and file system providers plus a built-in large-FAT32 formatter.
 - MBR/GPT partitioning, raw image writing, verification, and common Linux/portable filesystems.
 - ISO/ISOHybrid and compressed-image analysis with clear compatibility and safety feedback.
 - Logged, cancellable operations with a final flush before a device is reported ready.
@@ -126,11 +126,15 @@ release is stable within its documented capability set; review the
 
 ### Windows
 
-Download `rufust-*-windows-x86_64.zip` (Windows 10/11, x64), check it against
-`SHA256SUMS`, extract it, and run `rufust.exe`. Nothing is installed.
+For Windows 10/11 (x64), pick one download and check it against `SHA256SUMS`:
+
+- **Installer:** `rufust-*-windows-x86_64-setup.exe` installs Rufust in
+  Program Files with a Start menu entry and an uninstaller (Settings → Apps).
+- **Portable:** extract `rufust-*-windows-x86_64.zip` and run `rufust.exe`.
+  Nothing is installed.
 
 ```powershell
-Get-FileHash .\rufust-*-windows-x86_64.zip -Algorithm SHA256
+Get-FileHash .\rufust-*-windows-x86_64* -Algorithm SHA256
 ```
 
 The window runs with your normal rights. When you confirm an operation,

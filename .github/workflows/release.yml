@@ -296,7 +296,7 @@ jobs:
           if-no-files-found: error
 
   windows:
-    name: Windows portable build
+    name: Windows installer and portable build
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -321,10 +321,58 @@ jobs:
           $text = [Text.Encoding]::ASCII.GetString($bytes)
           if (-not $text.Contains('level="asInvoker"')) { throw 'missing asInvoker manifest' }
           Compress-Archive -Path $name -DestinationPath "dist\$name.zip"
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'could not install Inno Setup' }
+          }
+          $icon = Get-ChildItem target\release\build\rufust-*\out\rufust.ico |
+            Select-Object -First 1
+          if (-not $icon) { throw 'build did not produce rufust.ico' }
+          & $iscc /Q "/DVersion=$env:PACKAGE_VERSION" "/DIconFile=$($icon.FullName)" `
+            packaging\windows\rufust.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
+      - name: Install and uninstall the installer
+        shell: pwsh
+        run: |
+          $setup = "dist\rufust-$env:PACKAGE_VERSION-windows-x86_64-setup.exe"
+          $dir = Join-Path $env:RUNNER_TEMP 'Rufust'
+          $silent = '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+          $run = Start-Process $setup -ArgumentList ($silent + "/DIR=$dir") -Wait -PassThru
+          if ($run.ExitCode -ne 0) { throw "setup exited with $($run.ExitCode)" }
+          foreach ($file in 'rufust.exe', 'README.txt', 'LICENSE.txt', 'THIRD_PARTY.md') {
+            if (-not (Test-Path "$dir\$file")) { throw "missing $file" }
+          }
+          if ((Get-FileHash "$dir\rufust.exe").Hash -ne
+              (Get-FileHash target\release\rufust.exe).Hash) {
+            throw 'installed rufust.exe differs from the build'
+          }
+          $version = & "$dir\rufust.exe" --version | Out-String
+          if ($version.Trim() -ne "rufust $env:PACKAGE_VERSION") {
+            throw "unexpected version: $version"
+          }
+          $shortcut = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Rufust.lnk"
+          if (-not (Test-Path $shortcut)) { throw 'missing Start menu shortcut' }
+          $key = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{6C1F3B0E-7D2A-4E59-9B8C-2F4A1D7E5C31}_is1'
+          if ((Get-ItemProperty $key).DisplayVersion -ne $env:PACKAGE_VERSION) {
+            throw 'missing or wrong uninstall entry'
+          }
+          $run = Start-Process "$dir\unins000.exe" -ArgumentList $silent -Wait -PassThru
+          if ($run.ExitCode -ne 0) { throw "uninstall exited with $($run.ExitCode)" }
+          # The uninstaller removes its own files from a child process.
+          for ($i = 0; $i -lt 40 -and (Test-Path $dir); $i++) { Start-Sleep -Milliseconds 250 }
+          if ((Test-Path $dir) -or (Test-Path $shortcut) -or (Test-Path $key)) {
+            throw 'uninstall left files, shortcut or registry entry behind'
+          }
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: installer-windows
-          path: dist/*.zip
+          path: |
+            dist/*.zip
+            dist/*-setup.exe
           if-no-files-found: error
 
   publish:
@@ -380,7 +428,8 @@ jobs:
           - Fedora: `sudo dnf install ./rufust-*.x86_64.rpm`
           - Arch Linux: `sudo pacman -U ./rufust-*-x86_64.pkg.tar.zst`
           - Portable desktop: `chmod +x ./rufust-*.AppImage && ./rufust-*.AppImage`
-          - Windows 10/11 (x64): extract `rufust-*-windows-x86_64.zip` and run
+          - Windows 10/11 (x64): run `rufust-*-windows-x86_64-setup.exe`, or
+            extract the portable `rufust-*-windows-x86_64.zip` and run
             `rufust.exe`; Windows asks for administrator approval at Start.
 
           The AppImage runs on x86_64 glibc 2.28+ desktops. If FUSE is not
