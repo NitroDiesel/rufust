@@ -1,3 +1,9 @@
+rufust (1.2.0-1) unstable; urgency=medium
+
+  * Add Windows 10 and 11 support with an installer and a portable build.
+
+ -- Rufust contributors <rufust@users.noreply.github.com>  Wed, 11 Nov 2026 00:00:00 +0800
+
 rufust (1.1.0-1) unstable; urgency=medium
 
   * Rename the project from Rufus Linux to Rufust; replace the rufus-linux package.

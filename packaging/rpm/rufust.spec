@@ -1,5 +1,5 @@
 Name:           rufust
-Version:        1.1.0
+Version:        1.2.0
 Release:        1%{?dist}
 Summary:        Format and create bootable USB drives
 License:        GPL-3.0-or-later
@@ -57,6 +57,9 @@ done
 %{_datadir}/icons/hicolor/*/apps/io.github.nitrodiesel.rufust.png
 
 %changelog
+* Wed Nov 11 2026 Rufust contributors - 1.2.0-1
+- Add Windows 10 and 11 support with an installer and a portable build
+
 * Mon Nov 09 2026 Rufust contributors - 1.1.0-1
 - Rename the project from Rufus Linux to Rufust
 

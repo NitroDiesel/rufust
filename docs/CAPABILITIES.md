@@ -70,7 +70,7 @@ Blocked only on Windows: ext2/3/4 creation (no Windows formatter) and ReFS
 creation (only Pro for Workstations, Enterprise, and Server editions allow it,
 through VDS).
 
-## Unreleased: Windows support
+## Changes in 1.2.0
 
 Rufust now runs on Windows 10 and 11 (x64), alongside the Linux build, with
 the capabilities in the [Windows](#windows) table. The window stays

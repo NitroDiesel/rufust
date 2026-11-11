@@ -1,7 +1,7 @@
 ; Inno Setup script for the Rufust Windows installer.
 ;
 ; Build from the repository root after `cargo build -p rufust --release`:
-;   iscc /DVersion=1.1.0 /DIconFile=<path to rufust.ico> packaging\windows\rufust.iss
+;   iscc /DVersion=1.2.0 /DIconFile=<path to rufust.ico> packaging\windows\rufust.iss
 ;
 ; The installer writes to Program Files, so only administrators can replace
 ; the executable that the elevated disk worker runs. The app itself keeps its

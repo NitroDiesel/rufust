@@ -26,6 +26,12 @@
   </replaces>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.2.0" date="2026-11-11">
+      <description>
+        <p>Rufust now also runs on Windows 10 and 11, with an installer and a
+        portable download. The Linux version is unchanged.</p>
+      </description>
+    </release>
     <release version="1.1.0" date="2026-11-09">
       <description>
         <p>Rufus Linux is now called Rufust. Its packages replace the old

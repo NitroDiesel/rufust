@@ -18,12 +18,13 @@ Debian/Ubuntu, Fedora, and Windows 10/11 (x64). Feature parity means
 implementing an upstream concept safely on each platform; it does not mean exposing a control before its full operation
 is implemented and verified.
 
-## Current baseline: 1.1.0
+## Current baseline: 1.2.0
 
-Version 1.1.0 is the continuation baseline. Its public installers belong in the
-[v1.1.0 release](https://github.com/NitroDiesel/rufust/releases/tag/v1.1.0).
-The project was named Rufus Linux (`rufus-linux`) up to 1.0.1; 1.1.0 renamed it
-to Rufust everywhere. Its packages replace `rufus-linux`, and the desktop app
+Version 1.2.0 is the continuation baseline. Its public installers belong in the
+[v1.2.0 release](https://github.com/NitroDiesel/rufust/releases/tag/v1.2.0).
+1.2.0 is the first release with Windows support (below). The project was
+named Rufus Linux (`rufus-linux`) up to 1.0.1; 1.1.0 renamed it to Rufust
+everywhere. Its packages replace `rufus-linux`, and the desktop app
 still reads preferences from `~/.config/rufus-linux` until it saves its own.
 Release titles are `v<version>`. [`PARITY.md`](PARITY.md) tracks every
 upstream Rufus feature and the order in which the rest will land.
@@ -79,7 +80,7 @@ end-to-end implementation and its fixtures, integration tests, and boot tests
 exist. Supported standalone 512-byte-sector VHD/VHDX images convert when
 `qemu-nbd`, `nbdinfo`, and `nbdcopy` are installed.
 
-## Windows support (unreleased, after 1.1.0)
+## Windows support (since 1.2.0)
 
 Rufust also runs on Windows 10 and 11 (x64). The UI, planner, helper
 protocol, image analysis, Windows-media layout, answer files, and boot records
@@ -109,8 +110,7 @@ renders the workbench in the fixed 560x720 window. CI runs these on
 `windows-2022`, and the release workflow adds
 `rufust-<version>-windows-x86_64-setup.exe` (Inno Setup, verified by a silent
 install and uninstall) and the portable `rufust-<version>-windows-x86_64.zip`.
-No release containing Windows support
-has been published yet; the next version bump publishes the first one.
+The v1.2.0 release is the first to include them.
 
 ## Architecture map
 
@@ -316,10 +316,9 @@ included in 0.1.3.
 
 These are known follow-ups, not claims that the current release is broken:
 
-- Windows: smoke-test the zip on disposable physical USB media (flash drive
-  and USB SSD), boot-test Windows-built media, Authenticode-sign the
-  executable, and publish the first release that includes it. See
-  `WINDOWS.md`.
+- Windows: smoke-test on disposable physical USB media (flash drive and USB
+  SSD), boot-test Windows-built media, and Authenticode-sign the executable
+  and installer. See `WINDOWS.md`.
 - Run a packaged, real-polkit smoke test on disposable physical USB media for
   formatting, raw writing, Windows media, verification, cancellation, and
   disconnect during write. Automated tests, loop-backed udisks2 tests, and

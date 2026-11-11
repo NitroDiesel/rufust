@@ -141,7 +141,7 @@ The window runs with your normal rights. When you confirm an operation,
 Windows asks once for administrator approval, and a separate elevated copy of
 `rufust.exe` does the disk work; declining writes nothing. The executable is
 not code-signed yet, so SmartScreen may ask you to confirm the first launch.
-Windows builds are published from the first release after 1.1.0.
+Windows builds are published from 1.2.0 on.
 
 `SHA256SUMS` detects download corruption. GitHub build provenance attached to
 the release provides a separate publisher-verification path.

@@ -20,7 +20,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  PACKAGE_VERSION: 1.1.0
+  PACKAGE_VERSION: 1.2.0
 
 jobs:
   debian:
@@ -417,12 +417,14 @@ jobs:
           capability set. It is an independent port and is not produced,
           endorsed, or supported by the upstream Rufus project.
 
-          Highlights: automatic USB hot-plug detection, aligned and
-          keyboard-accessible controls, a continuous Windows-style progress
-          bar, true modal overlays, and stronger privileged source/target
-          validation with cooperative cancellation.
+          New in 1.2.0: Rufust runs on Windows 10 and 11 (x64), with an
+          installer and a portable download. The window stays unprivileged;
+          each operation runs in an elevated worker after one UAC approval.
+          On Windows, ext2/3/4 and ReFS creation are not offered. The Windows
+          downloads are not code-signed yet, so SmartScreen may ask you to
+          confirm the first launch. Linux behavior is unchanged.
 
-          Download the package for your x86_64 distribution:
+          Download the package for your x86_64 system:
 
           - Debian/Ubuntu: `sudo apt install ./rufust_*_amd64.deb`
           - Fedora: `sudo dnf install ./rufust-*.x86_64.rpm`
@@ -434,14 +436,15 @@ jobs:
 
           The AppImage runs on x86_64 glibc 2.28+ desktops. If FUSE is not
           available, add `--appimage-extract-and-run`. For security, the
-          portable artifact does not contain privileged code: writing and
+          AppImage does not contain privileged code: writing and
           formatting require the matching native package's root-owned helper.
 
-          Verify the download first with `sha256sum -c SHA256SUMS`.
+          Verify the download first with `sha256sum -c SHA256SUMS` (on
+          Windows, compare `Get-FileHash` with the matching line).
 
           This release supports safe formatting and raw, compressed-raw,
           ISOHybrid, and standalone VHD/VHDX writing with verification.
-          Native packages install qemu-nbd, nbdinfo, and nbdcopy for
+          Linux native packages install qemu-nbd, nbdinfo, and nbdcopy for
           conversion. Review the project capability matrix before performing
           destructive operations.
           EOF
