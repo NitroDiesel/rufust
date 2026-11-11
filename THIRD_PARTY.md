@@ -28,7 +28,7 @@ DiscUtils writer, pinned with dependency hashes and source provenance under
 
 ## Expected system dependencies
 
-These tools and libraries are intended to remain system dependencies rather than copied into this repository:
+These tools and libraries are intended to remain system dependencies on Linux rather than copied into this repository:
 
 | Component | Typical license | Purpose |
 |---|---|---|
@@ -49,6 +49,24 @@ These tools and libraries are intended to remain system dependencies rather than
 | gzip, bzip2, xz, zstd | Various free-software licenses | Compressed raw-image decoding |
 
 License versions above are orientation only. The installed package's license metadata is authoritative.
+
+## Windows build
+
+The Windows executable statically links these crates in addition to the
+shared ones; their license texts ship with the crates:
+
+| Component | License | Purpose |
+|---|---|---|
+| windows-sys | MIT or Apache-2.0 | Win32 bindings |
+| flate2 (miniz_oxide) | MIT or Apache-2.0 | gzip, zip deflate |
+| bzip2 (libbz2-rs-sys) | MIT or Apache-2.0; bzip2-1.0.6 | bzip2 |
+| lzma-rust2 | Apache-2.0 | xz, lzma |
+| ruzstd | MIT | zstd |
+| embed-resource (build only) | MIT | Icon and manifest resources |
+
+It calls, but never redistributes, Windows components: `fmifs.dll`
+(`FormatEx`), `virtdisk.dll`, the storage and disk IOCTLs, the common file
+dialog, and UAC. The Windows zip ships `LICENSE.txt` and this file.
 
 ## Bundled boot assets
 

@@ -1,8 +1,9 @@
 //! Lightweight block-device change detection for the desktop application.
 //!
 //! Linux updates `/sys/class/block` as disks and their partitions appear or
-//! disappear. Polling that small directory avoids a daemon dependency and a
-//! one-slot channel naturally coalesces bursts of kernel events.
+//! disappear; Windows lists disk interfaces and volumes. Polling that small
+//! snapshot avoids a daemon dependency and a one-slot channel naturally
+//! coalesces bursts of device events.
 
 use std::ffi::OsString;
 use std::fs;
@@ -13,6 +14,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
+#[cfg(not(windows))]
 const SYS_BLOCK: &str = "/sys/class/block";
 const SCAN_INTERVAL: Duration = Duration::from_millis(500);
 
@@ -23,18 +25,37 @@ pub struct BlockDeviceWatcher {
 }
 
 impl BlockDeviceWatcher {
+    #[cfg(not(windows))]
     pub fn spawn(changes: SyncSender<()>) -> io::Result<Self> {
         Self::spawn_at(PathBuf::from(SYS_BLOCK), SCAN_INTERVAL, changes)
     }
 
+    #[cfg(windows)]
+    pub fn spawn(changes: SyncSender<()>) -> io::Result<Self> {
+        Self::spawn_with(
+            rufust_platform::windows::device_snapshot,
+            SCAN_INTERVAL,
+            changes,
+        )
+    }
+
+    #[cfg_attr(windows, allow(dead_code))]
     fn spawn_at(
         sys_block: PathBuf,
         scan_interval: Duration,
         changes: SyncSender<()>,
     ) -> io::Result<Self> {
+        Self::spawn_with(move || block_names(&sys_block), scan_interval, changes)
+    }
+
+    fn spawn_with(
+        snapshot: impl Fn() -> io::Result<Vec<OsString>> + Send + 'static,
+        scan_interval: Duration,
+        changes: SyncSender<()>,
+    ) -> io::Result<Self> {
         // Establish the baseline before returning so a device connected just
         // after startup cannot race with worker initialization.
-        let mut previous = block_names(&sys_block)?;
+        let mut previous = snapshot()?;
         let stop = Arc::new((Mutex::new(false), Condvar::new()));
         let worker_stop = Arc::clone(&stop);
         let worker = thread::Builder::new()
@@ -50,8 +71,8 @@ impl BlockDeviceWatcher {
                 }
                 drop(guard);
 
-                let Ok(current) = block_names(&sys_block) else {
-                    // A transient sysfs read failure is not a device removal.
+                let Ok(current) = snapshot() else {
+                    // A transient read failure is not a device removal.
                     continue;
                 };
                 if current == previous {
@@ -84,6 +105,7 @@ impl Drop for BlockDeviceWatcher {
     }
 }
 
+#[cfg_attr(windows, allow(dead_code))]
 fn block_names(sys_block: &Path) -> io::Result<Vec<OsString>> {
     let mut names = fs::read_dir(sys_block)?
         .filter_map(|entry| entry.ok().map(|entry| entry.file_name()))

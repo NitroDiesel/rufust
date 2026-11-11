@@ -2,7 +2,6 @@
 
 use std::fs::File;
 use std::io::{self, Read, Seek, SeekFrom};
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::{Path, PathBuf};
 
 use md5::{Digest as _, Md5};
@@ -74,10 +73,15 @@ impl ImageReport {
 
 /// Probe an image file without extracting contents.
 pub fn analyze(path: &Path) -> Result<ImageReport, ImageError> {
-    let mut file = std::fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NONBLOCK)
-        .open(path)?;
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        // A FIFO must not block the open waiting for a writer.
+        options.custom_flags(libc::O_NONBLOCK);
+    }
+    let mut file = options.open(path)?;
     analyze_file(path, &mut file)
 }
 
@@ -631,6 +635,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn named_pipe_is_rejected_without_waiting_for_a_writer() {
         use std::os::unix::ffi::OsStrExt;
         let path = temp_path("fifo");

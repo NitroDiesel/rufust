@@ -1,6 +1,9 @@
 //! "Set regional options to the same values as this user's": the Linux
 //! locale, keyboard layout, and time zone in Windows' answer-file notation.
-//! Upstream reads the same values from the Windows registry and NLS APIs.
+//! Upstream reads the same values from the Windows registry and NLS APIs,
+//! and so does the Windows build.
+// The Linux readers stay compiled (and tested) on Windows.
+#![cfg_attr(windows, allow(dead_code))]
 
 use std::path::Path;
 
@@ -67,6 +70,80 @@ const KEYBOARDS: &[(&str, &str)] = &[
 
 /// This session's regional settings, matched against the image's languages
 /// so that Windows is never asked for a display language it does not have.
+/// Windows reports them directly, as upstream reads them.
+#[cfg(windows)]
+pub fn current(image_languages: &[String]) -> RegionalSettings {
+    use windows_sys::Win32::Globalization::{
+        GetSystemDefaultLocaleName, GetUserDefaultLocaleName, GetUserDefaultUILanguage,
+        LCIDToLocaleName,
+    };
+    use windows_sys::Win32::System::Time::{
+        GetDynamicTimeZoneInformation, DYNAMIC_TIME_ZONE_INFORMATION, TIME_ZONE_ID_INVALID,
+    };
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetKeyboardLayoutNameW;
+
+    const LOCALE_NAME_MAX_LENGTH: usize = 85;
+    let text = |buffer: &[u16]| {
+        let end = buffer.iter().position(|c| *c == 0).unwrap_or(buffer.len());
+        String::from_utf16_lossy(&buffer[..end])
+    };
+    let locale = |read: unsafe extern "system" fn(*mut u16, i32) -> i32| {
+        let mut buffer = [0u16; LOCALE_NAME_MAX_LENGTH];
+        // SAFETY: the buffer holds LOCALE_NAME_MAX_LENGTH characters.
+        let length = unsafe { read(buffer.as_mut_ptr(), buffer.len() as i32) };
+        Some(text(&buffer))
+            .filter(|name| length > 0 && !name.is_empty())
+            .unwrap_or_else(|| "en-US".into())
+    };
+    let system_locale = locale(GetSystemDefaultLocaleName);
+    let user_locale = locale(GetUserDefaultLocaleName);
+
+    let mut buffer = [0u16; LOCALE_NAME_MAX_LENGTH];
+    // SAFETY: a LANGID is a valid LCID with the default sort; the buffer
+    // holds LOCALE_NAME_MAX_LENGTH characters.
+    let length = unsafe {
+        LCIDToLocaleName(
+            u32::from(GetUserDefaultUILanguage()),
+            buffer.as_mut_ptr(),
+            buffer.len() as i32,
+            0,
+        )
+    };
+    let display = if length > 0 {
+        text(&buffer)
+    } else {
+        user_locale.clone()
+    };
+
+    // A keyboard layout identifier such as 00020409; its low word is the
+    // language, giving upstream's `0409:00020409` notation.
+    let mut layout = [0u16; 9];
+    // SAFETY: KL_NAMELENGTH is nine characters including the terminator.
+    let input_locale = (unsafe { GetKeyboardLayoutNameW(layout.as_mut_ptr()) } != 0)
+        .then(|| text(&layout))
+        .filter(|klid| klid.len() == 8 && klid.chars().all(|c| c.is_ascii_hexdigit()))
+        .map(|klid| format!("{}:{}", &klid[4..], klid).to_ascii_lowercase())
+        .unwrap_or_else(|| system_locale.clone());
+
+    // SAFETY: zero is a valid starting value for this plain structure.
+    let mut zone: DYNAMIC_TIME_ZONE_INFORMATION = unsafe { std::mem::zeroed() };
+    // SAFETY: `zone` is writable; the key name is the stable English name.
+    let time_zone = (unsafe { GetDynamicTimeZoneInformation(&mut zone) } != TIME_ZONE_ID_INVALID)
+        .then(|| text(&zone.TimeZoneKeyName))
+        .filter(|name| !name.is_empty());
+
+    RegionalSettings {
+        input_locale,
+        ui_language: ui_language(&display, image_languages),
+        user_locale,
+        system_locale,
+        time_zone,
+    }
+}
+
+/// This session's regional settings, matched against the image's languages
+/// so that Windows is never asked for a display language it does not have.
+#[cfg(not(windows))]
 pub fn current(image_languages: &[String]) -> RegionalSettings {
     let env = |name: &str| std::env::var(name).ok().filter(|value| !value.is_empty());
     let locale = |category: &str| {
@@ -215,6 +292,17 @@ pub fn windows_zone(iana: &str) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn this_session_yields_valid_answer_file_values() {
+        let customization = rufust_helper_protocol::WindowsCustomization {
+            regional: Some(current(&["en-US".to_owned()])),
+            ..Default::default()
+        };
+        customization
+            .validate()
+            .expect("regional values pass validation");
+    }
 
     #[test]
     fn posix_locales_become_windows_tags() {

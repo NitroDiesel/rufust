@@ -20,7 +20,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  PACKAGE_VERSION: 1.1.0
+  PACKAGE_VERSION: 1.2.0
 
 jobs:
   debian:
@@ -295,12 +295,92 @@ jobs:
             dist/*.AppImage.zsync
           if-no-files-found: error
 
+  windows:
+    name: Windows installer and portable build
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@bc540ba06a4ccee415bb241490e0b25ee8e7d315
+      - name: Build
+        run: cargo build -p rufust --release --locked
+      - name: Package and validate
+        shell: pwsh
+        run: |
+          $name = "rufust-$env:PACKAGE_VERSION-windows-x86_64"
+          New-Item -ItemType Directory -Path dist, $name | Out-Null
+          Copy-Item target\release\rufust.exe $name
+          Copy-Item packaging\windows\README.txt, LICENSE.txt, THIRD_PARTY.md $name
+          $version = & "$name\rufust.exe" --version | Out-String
+          if ($version.Trim() -ne "rufust $env:PACKAGE_VERSION") {
+            throw "unexpected version: $version"
+          }
+          # x86-64 PE with an asInvoker manifest: the window never elevates.
+          $bytes = [IO.File]::ReadAllBytes((Resolve-Path "$name\rufust.exe").Path)
+          $pe = [BitConverter]::ToInt32($bytes, 0x3c)
+          if ([BitConverter]::ToUInt16($bytes, $pe + 4) -ne 0x8664) { throw 'not x86-64' }
+          $text = [Text.Encoding]::ASCII.GetString($bytes)
+          if (-not $text.Contains('level="asInvoker"')) { throw 'missing asInvoker manifest' }
+          Compress-Archive -Path $name -DestinationPath "dist\$name.zip"
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw 'could not install Inno Setup' }
+          }
+          $icon = Get-ChildItem target\release\build\rufust-*\out\rufust.ico |
+            Select-Object -First 1
+          if (-not $icon) { throw 'build did not produce rufust.ico' }
+          & $iscc /Q "/DVersion=$env:PACKAGE_VERSION" "/DIconFile=$($icon.FullName)" `
+            packaging\windows\rufust.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
+      - name: Install and uninstall the installer
+        shell: pwsh
+        run: |
+          $setup = "dist\rufust-$env:PACKAGE_VERSION-windows-x86_64-setup.exe"
+          $dir = Join-Path $env:RUNNER_TEMP 'Rufust'
+          $silent = '/VERYSILENT', '/SUPPRESSMSGBOXES', '/NORESTART'
+          $run = Start-Process $setup -ArgumentList ($silent + "/DIR=$dir") -Wait -PassThru
+          if ($run.ExitCode -ne 0) { throw "setup exited with $($run.ExitCode)" }
+          foreach ($file in 'rufust.exe', 'README.txt', 'LICENSE.txt', 'THIRD_PARTY.md') {
+            if (-not (Test-Path "$dir\$file")) { throw "missing $file" }
+          }
+          if ((Get-FileHash "$dir\rufust.exe").Hash -ne
+              (Get-FileHash target\release\rufust.exe).Hash) {
+            throw 'installed rufust.exe differs from the build'
+          }
+          $version = & "$dir\rufust.exe" --version | Out-String
+          if ($version.Trim() -ne "rufust $env:PACKAGE_VERSION") {
+            throw "unexpected version: $version"
+          }
+          $shortcut = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs\Rufust.lnk"
+          if (-not (Test-Path $shortcut)) { throw 'missing Start menu shortcut' }
+          $key = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{6C1F3B0E-7D2A-4E59-9B8C-2F4A1D7E5C31}_is1'
+          if ((Get-ItemProperty $key).DisplayVersion -ne $env:PACKAGE_VERSION) {
+            throw 'missing or wrong uninstall entry'
+          }
+          $run = Start-Process "$dir\unins000.exe" -ArgumentList $silent -Wait -PassThru
+          if ($run.ExitCode -ne 0) { throw "uninstall exited with $($run.ExitCode)" }
+          # The uninstaller removes its own files from a child process.
+          for ($i = 0; $i -lt 40 -and (Test-Path $dir); $i++) { Start-Sleep -Milliseconds 250 }
+          if ((Test-Path $dir) -or (Test-Path $shortcut) -or (Test-Path $key)) {
+            throw 'uninstall left files, shortcut or registry entry behind'
+          }
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: installer-windows
+          path: |
+            dist/*.zip
+            dist/*-setup.exe
+          if-no-files-found: error
+
   publish:
     name: Publish GitHub Release
     if: >-
       startsWith(github.ref, 'refs/tags/') ||
       startsWith(github.ref, 'refs/heads/release/v')
-    needs: [debian, fedora, arch, appimage]
+    needs: [debian, fedora, arch, appimage, windows]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
@@ -333,32 +413,38 @@ jobs:
           fi
           version="${tag#v}"
           cat > /tmp/release-notes.md <<'EOF'
-          Rufust is a stable Linux-native release within its documented
+          Rufust is a stable Linux and Windows release within its documented
           capability set. It is an independent port and is not produced,
           endorsed, or supported by the upstream Rufus project.
 
-          Highlights: automatic USB hot-plug detection, aligned and
-          keyboard-accessible controls, a continuous Windows-style progress
-          bar, true modal overlays, and stronger privileged source/target
-          validation with cooperative cancellation.
+          New in 1.2.0: Rufust runs on Windows 10 and 11 (x64), with an
+          installer and a portable download. The window stays unprivileged;
+          each operation runs in an elevated worker after one UAC approval.
+          On Windows, ext2/3/4 and ReFS creation are not offered. The Windows
+          downloads are not code-signed yet, so SmartScreen may ask you to
+          confirm the first launch. Linux behavior is unchanged.
 
-          Download the package for your x86_64 distribution:
+          Download the package for your x86_64 system:
 
           - Debian/Ubuntu: `sudo apt install ./rufust_*_amd64.deb`
           - Fedora: `sudo dnf install ./rufust-*.x86_64.rpm`
           - Arch Linux: `sudo pacman -U ./rufust-*-x86_64.pkg.tar.zst`
           - Portable desktop: `chmod +x ./rufust-*.AppImage && ./rufust-*.AppImage`
+          - Windows 10/11 (x64): run `rufust-*-windows-x86_64-setup.exe`, or
+            extract the portable `rufust-*-windows-x86_64.zip` and run
+            `rufust.exe`; Windows asks for administrator approval at Start.
 
           The AppImage runs on x86_64 glibc 2.28+ desktops. If FUSE is not
           available, add `--appimage-extract-and-run`. For security, the
-          portable artifact does not contain privileged code: writing and
+          AppImage does not contain privileged code: writing and
           formatting require the matching native package's root-owned helper.
 
-          Verify the download first with `sha256sum -c SHA256SUMS`.
+          Verify the download first with `sha256sum -c SHA256SUMS` (on
+          Windows, compare `Get-FileHash` with the matching line).
 
           This release supports safe formatting and raw, compressed-raw,
           ISOHybrid, and standalone VHD/VHDX writing with verification.
-          Native packages install qemu-nbd, nbdinfo, and nbdcopy for
+          Linux native packages install qemu-nbd, nbdinfo, and nbdcopy for
           conversion. Review the project capability matrix before performing
           destructive operations.
           EOF

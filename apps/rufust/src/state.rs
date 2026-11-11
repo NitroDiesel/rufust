@@ -27,6 +27,11 @@ pub const DEFAULT_VOLUME_LABEL: &str = "RUFUST";
 pub const SUPER_FLOPPY_LABEL: &str = "Super Floppy Disk";
 /// Largest file FAT32 can store.
 const FAT32_MAX_FILE: u64 = 4 * 1024 * 1024 * 1024 - 1;
+const REFS_UNAVAILABLE: &str = if cfg!(windows) {
+    "ReFS creation is not available on Windows."
+} else {
+    "ReFS creation is unavailable on Linux."
+};
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BootSelection {
     DiskOrIso,
@@ -387,7 +392,7 @@ impl AppState {
     pub fn recompute(&mut self) {
         let mut hints = Vec::new();
         if self.filesystem_label.starts_with("ReFS") {
-            hints.push("ReFS creation is unavailable on Linux.".to_owned());
+            hints.push(REFS_UNAVAILABLE.to_owned());
         }
         if self.boot_selection == BootSelection::FreeDos
             && !self.capabilities.supports(Capability::FreeDos)
@@ -450,13 +455,21 @@ impl AppState {
             && !self.capabilities.supports(filesystem_capability)
         {
             if filesystem_name == "ReFS" {
-                return Some("ReFS creation is unavailable on Linux.".into());
+                return Some(REFS_UNAVAILABLE.into());
+            }
+            if cfg!(windows) {
+                return Some(format!(
+                    "{filesystem_name} creation is not available on Windows yet."
+                ));
             }
             return Some(format!(
                 "Install the formatter provider for {filesystem_name} to enable this option."
             ));
         }
-        let own_bad_block_test = matches!(self.backend, Ok(Backend::Udisks { .. }));
+        let own_bad_block_test = self
+            .backend
+            .as_ref()
+            .is_ok_and(Backend::has_own_bad_block_test);
         if self.check_bad_blocks
             && !own_bad_block_test
             && !self.capabilities.supports(Capability::BadBlocksCheck)
@@ -498,7 +511,11 @@ impl AppState {
                     .into(),
             ),
             Some(ImageSourceKind::Ffu) => {
-                Some("FFU apply is unavailable because Linux has no selected safe provider.".into())
+                Some(if cfg!(windows) {
+                    "FFU apply is not available yet.".into()
+                } else {
+                    "FFU apply is unavailable because Linux has no selected safe provider.".into()
+                })
             }
             Some(ImageSourceKind::None) => Some("Select a supported disk image.".into()),
         }
@@ -828,9 +845,11 @@ impl AppState {
             .ok_or(PlanError::InvalidDevice("no device"))?;
         let filesystem = self.parse_filesystem()?;
         if filesystem == FileSystem::Refs {
-            return Err(PlanError::UnavailableCapability(
-                "ReFS creation is not available on Linux".into(),
-            ));
+            return Err(PlanError::UnavailableCapability(if cfg!(windows) {
+                "ReFS creation is not available on Windows".into()
+            } else {
+                "ReFS creation is not available on Linux".into()
+            }));
         }
         let write_mode = self.write_mode();
         let partition = PartitionPlan {
@@ -1100,11 +1119,21 @@ impl DeviceListLabel for BlockDevice {
 mod tests {
     use super::*;
     use rufust_core::device::{DeviceFingerprint, DeviceNumber, DeviceRisk, Transport};
+
+    /// Unix fixture paths, made absolute on Windows too.
+    fn test_path(unix: &str) -> std::path::PathBuf {
+        std::path::PathBuf::from(if cfg!(windows) {
+            format!("C:{unix}")
+        } else {
+            unix.to_owned()
+        })
+    }
+
     use std::path::PathBuf;
 
     fn sample_device() -> BlockDevice {
         BlockDevice {
-            node: PathBuf::from("/dev/sdb"),
+            node: test_path("/dev/sdb"),
             display_name: "Test Stick".into(),
             vendor: Some("Test".into()),
             model: Some("Stick".into()),
@@ -1112,7 +1141,7 @@ mod tests {
             transport: Transport::Usb,
             fingerprint: DeviceFingerprint {
                 number: DeviceNumber::new(8, 16),
-                canonical_sysfs_path: PathBuf::from("/sys/devices/example"),
+                canonical_sysfs_path: test_path("/sys/devices/example"),
                 size_bytes: 32 * 1024 * 1024 * 1024,
                 logical_block_size: 512,
                 serial: Some("SN".into()),

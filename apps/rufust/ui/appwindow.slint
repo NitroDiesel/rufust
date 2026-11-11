@@ -93,7 +93,8 @@ export component AppWindow inherits Window {
     in-out property <bool> show-about: false;
     in-out property <bool> show-advanced: false;
     in-out property <string> capability-hint: "";
-    in-out property <string> app-version: "1.1.0";
+    in-out property <string> app-version: "1.2.0";
+    in property <string> privilege-note: "Destructive writes use a polkit-authorized helper. The desktop process never holds ambient root for raw disks.";
 
     // —— Callbacks ——
     callback refresh-devices();
@@ -666,14 +667,14 @@ export component AppWindow inherits Window {
                     }
                 }
                 Text {
-                    text: "Independent Linux port inspired by Rufus. Formats and writes bootable removable media under GPLv3. Not affiliated with upstream Rufus maintainers.";
+                    text: "Independent Linux and Windows port inspired by Rufus. Formats and writes bootable removable media under GPLv3. Not affiliated with upstream Rufus maintainers.";
                     color: Theme.text;
                     font-family: Theme.body-font;
                     font-size: 13px;
                     wrap: word-wrap;
                 }
                 Text {
-                    text: "Destructive writes use a polkit-authorized helper. The desktop process never holds ambient root for raw disks.";
+                    text: root.privilege-note;
                     color: Theme.muted;
                     font-family: Theme.body-font;
                     font-size: 12px;

@@ -1,6 +1,6 @@
 [package]
 name = "rufust-helper"
-description = "Privileged helper for raw-device operations (polkit-authorized)"
+description = "Disk operation engines for Rufust: udisks2 and the polkit helper on Linux, an elevated worker on Windows"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -24,7 +24,26 @@ fs2 = "0.4"
 sha2 = "0.10"
 libc = "0.2"
 rufust-image = { path = "../rufust-image" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
 zbus = { version = "4.4", default-features = false, features = ["async-io"] }
+
+[target.'cfg(windows)'.dependencies]
+bzip2 = "0.6"
+flate2 = "1"
+lzma-rust2 = { version = "0.15", default-features = false, features = ["std", "xz"] }
+ruzstd = { version = "0.7", default-features = false, features = ["std"] }
+windows-sys = { version = "0.59", features = [
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_Storage_FileSystem",
+    "Win32_Storage_Vhd",
+    "Win32_System_Com",
+    "Win32_System_IO",
+    "Win32_System_Ioctl",
+    "Win32_System_LibraryLoader",
+    "Win32_System_Threading",
+] }
 
 [dev-dependencies]
 rufust-image = { path = "../rufust-image", features = ["fixtures"] }

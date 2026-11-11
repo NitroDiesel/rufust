@@ -15,11 +15,10 @@ use rufust_helper_protocol::WindowsCustomization;
 use rufust_image::isofs;
 
 use super::*;
+use crate::engine::{customization_plan, Meter, Reporter, MIB};
 use crate::udisks::{ObjectPath, Udisks};
-use crate::unattend;
 use crate::windows_media::{self as winmedia, Span};
 
-const MIB: u64 = 1024 * 1024;
 const GPT_LINUX_DATA: &str = "0fc63daf-8483-4772-8e79-3d69d8477de4";
 
 /// Version of the reachable udisks2 daemon, or why it cannot be used.
@@ -188,86 +187,6 @@ fn table_kind(scheme: PartitionScheme) -> &'static str {
     match scheme {
         PartitionScheme::Mbr => "dos",
         _ => "gpt",
-    }
-}
-
-/// Stage and byte progress for one job.
-struct Reporter<'a> {
-    job_id: JobId,
-    sink: &'a mut EventSink,
-    step: u64,
-    total: u64,
-}
-
-impl Reporter<'_> {
-    fn stage(&mut self, stage: ProgressStage, detail: &str) {
-        let event = progress(
-            self.job_id,
-            stage,
-            self.step,
-            Some(self.total),
-            Some(detail.to_owned()),
-        );
-        emit(self.sink, event);
-        self.step = (self.step + 1).min(self.total);
-    }
-
-    fn log(&mut self, line: impl Into<String>) {
-        let event = HelperEvent::Log {
-            job_id: self.job_id,
-            line: line.into(),
-        };
-        emit(self.sink, event);
-    }
-
-    fn bytes(&mut self, stage: ProgressStage, meter: &mut Meter, done: u64, detail: &str) {
-        if !meter.due(done) {
-            return;
-        }
-        let event = HelperEvent::Progress {
-            job_id: self.job_id,
-            stage,
-            unit: ProgressUnit::Bytes,
-            completed: done,
-            total: Some(meter.total),
-            bytes_per_second: Some(meter.rate(done)),
-            detail: Some(detail.to_owned()),
-            cancellability: Cancellability::Immediate,
-        };
-        emit(self.sink, event);
-    }
-}
-
-struct Meter {
-    total: u64,
-    started: Instant,
-    last: Option<Instant>,
-}
-
-impl Meter {
-    fn new(total: u64) -> Self {
-        Self {
-            total,
-            started: Instant::now(),
-            last: None,
-        }
-    }
-
-    fn due(&mut self, done: u64) -> bool {
-        let now = Instant::now();
-        if done < self.total
-            && self
-                .last
-                .is_some_and(|last| now.duration_since(last) < Duration::from_millis(200))
-        {
-            return false;
-        }
-        self.last = Some(now);
-        true
-    }
-
-    fn rate(&self, done: u64) -> u64 {
-        (done as f64 / self.started.elapsed().as_secs_f64().max(0.001)) as u64
     }
 }
 
@@ -734,45 +653,6 @@ struct WindowsMediaOptions<'a> {
     verification: VerificationLevel,
     bad_blocks: bool,
     customization: Option<&'a WindowsCustomization>,
-}
-
-/// Read the image's Windows details and refuse customization it cannot take.
-fn customization_plan(
-    iso: &mut File,
-    listing: &isofs::IsoListing,
-    options: &WindowsCustomization,
-) -> Result<(unattend::AnswerFile, u32), HelperError> {
-    let windows = rufust_image::windows::inspect(iso, listing)
-        .filter(|windows| windows.is_windows_10_or_later())
-        .ok_or_else(|| {
-            HelperError::Operation(
-                "Windows User Experience options need Windows 10 or later media".into(),
-            )
-        })?;
-    if windows.has_panther_unattend || listing.has_file(unattend::ROOT_ANSWER_FILE) {
-        return Err(HelperError::Operation(
-            "this image already has its own answer file".into(),
-        ));
-    }
-    if let Some(index) = options.silent_install_index {
-        if !windows
-            .editions
-            .iter()
-            .any(|edition| edition.index == index)
-        {
-            return Err(HelperError::Operation(format!(
-                "this image has no Windows edition {index}"
-            )));
-        }
-    }
-    let arch = windows.arch.ok_or_else(|| {
-        HelperError::Operation("the Windows architecture of this image is unknown".into())
-    })?;
-    let language = windows.setup_language.as_deref().unwrap_or("en-US");
-    Ok((
-        unattend::answer_file(options, arch, language),
-        windows.build,
-    ))
 }
 
 fn write_windows_media(

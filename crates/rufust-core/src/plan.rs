@@ -392,22 +392,30 @@ mod tests {
     use super::*;
     use crate::device::{DeviceFingerprint, DeviceNumber};
     use crate::progress::JobId;
-    use std::path::PathBuf;
+
+    /// Unix fixture paths, made absolute on Windows too.
+    fn test_path(unix: &str) -> std::path::PathBuf {
+        std::path::PathBuf::from(if cfg!(windows) {
+            format!("C:{unix}")
+        } else {
+            unix.to_owned()
+        })
+    }
 
     fn sample_plan() -> OperationPlan {
         OperationPlan {
             job_id: JobId::new(1),
-            target_node: PathBuf::from("/dev/sdb"),
+            target_node: test_path("/dev/sdb"),
             target_fingerprint: DeviceFingerprint {
                 number: DeviceNumber::new(8, 16),
-                canonical_sysfs_path: PathBuf::from("/sys/devices/example"),
+                canonical_sysfs_path: test_path("/sys/devices/example"),
                 size_bytes: 32 * 1024 * 1024 * 1024,
                 logical_block_size: 512,
                 serial: Some("ABC".into()),
                 wwn: None,
             },
             source: Some(ImageSource {
-                path: PathBuf::from("/tmp/test.iso"),
+                path: test_path("/tmp/test.iso"),
                 kind: ImageSourceKind::Iso,
                 size_bytes: 700 * 1024 * 1024,
                 decompressed_size_bytes: None,
