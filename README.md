@@ -85,8 +85,8 @@ For the full formatter and image-tool set, install the runtime dependencies list
 
 ## Install a release
 
-Download the package for your x86_64 distribution, or the Windows zip, from
-[GitHub Releases](https://github.com/NitroDiesel/rufust/releases).
+Download the package for your x86_64 distribution, or the Windows installer or
+portable executable, from [GitHub Releases](https://github.com/NitroDiesel/rufust/releases).
 Keep `SHA256SUMS` beside the downloaded package and verify it before installing:
 
 ```sh
@@ -130,8 +130,8 @@ For Windows 10/11 (x64), pick one download and check it against `SHA256SUMS`:
 
 - **Installer:** `rufust-*-windows-x86_64-setup.exe` installs Rufust in
   Program Files with a Start menu entry and an uninstaller (Settings → Apps).
-- **Portable:** extract `rufust-*-windows-x86_64.zip` and run `rufust.exe`.
-  Nothing is installed.
+- **Portable:** run `rufust-*-windows-x86_64.exe` directly from anywhere, such
+  as a USB stick. Nothing is installed.
 
 ```powershell
 Get-FileHash .\rufust-*-windows-x86_64* -Algorithm SHA256

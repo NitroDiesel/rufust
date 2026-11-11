@@ -296,31 +296,30 @@ jobs:
           if-no-files-found: error
 
   windows:
-    name: Windows installer and portable build
+    name: Windows installer and portable executable
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: dtolnay/rust-toolchain@bc540ba06a4ccee415bb241490e0b25ee8e7d315
       - name: Build
         run: cargo build -p rufust --release --locked
-      - name: Package and validate
+      - name: Package and validate the portable executable
         shell: pwsh
         run: |
-          $name = "rufust-$env:PACKAGE_VERSION-windows-x86_64"
-          New-Item -ItemType Directory -Path dist, $name | Out-Null
-          Copy-Item target\release\rufust.exe $name
-          Copy-Item packaging\windows\README.txt, LICENSE.txt, THIRD_PARTY.md $name
-          $version = & "$name\rufust.exe" --version | Out-String
+          # The portable download is the bare executable, as upstream Rufus ships.
+          $portable = "dist\rufust-$env:PACKAGE_VERSION-windows-x86_64.exe"
+          New-Item -ItemType Directory -Path dist | Out-Null
+          Copy-Item target\release\rufust.exe $portable
+          $version = & $portable --version | Out-String
           if ($version.Trim() -ne "rufust $env:PACKAGE_VERSION") {
             throw "unexpected version: $version"
           }
           # x86-64 PE with an asInvoker manifest: the window never elevates.
-          $bytes = [IO.File]::ReadAllBytes((Resolve-Path "$name\rufust.exe").Path)
+          $bytes = [IO.File]::ReadAllBytes((Resolve-Path $portable).Path)
           $pe = [BitConverter]::ToInt32($bytes, 0x3c)
           if ([BitConverter]::ToUInt16($bytes, $pe + 4) -ne 0x8664) { throw 'not x86-64' }
           $text = [Text.Encoding]::ASCII.GetString($bytes)
           if (-not $text.Contains('level="asInvoker"')) { throw 'missing asInvoker manifest' }
-          Compress-Archive -Path $name -DestinationPath "dist\$name.zip"
       - name: Build installer
         shell: pwsh
         run: |
@@ -370,9 +369,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: installer-windows
-          path: |
-            dist/*.zip
-            dist/*-setup.exe
+          path: dist/*.exe
           if-no-files-found: error
 
   publish:
@@ -430,9 +427,10 @@ jobs:
           - Fedora: `sudo dnf install ./rufust-*.x86_64.rpm`
           - Arch Linux: `sudo pacman -U ./rufust-*-x86_64.pkg.tar.zst`
           - Portable desktop: `chmod +x ./rufust-*.AppImage && ./rufust-*.AppImage`
-          - Windows 10/11 (x64): run `rufust-*-windows-x86_64-setup.exe`, or
-            extract the portable `rufust-*-windows-x86_64.zip` and run
-            `rufust.exe`; Windows asks for administrator approval at Start.
+          - Windows 10/11 (x64): run the installer
+            `rufust-*-windows-x86_64-setup.exe`, or run the portable
+            `rufust-*-windows-x86_64.exe` directly; Windows asks for
+            administrator approval at Start.
 
           The AppImage runs on x86_64 glibc 2.28+ desktops. If FUSE is not
           available, add `--appimage-extract-and-run`. For security, the

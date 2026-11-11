@@ -7,7 +7,8 @@ project or its maintainers.
 
 Windows 10 or 11 (x64) is required. The installer puts rufust.exe in
 Program Files with a Start menu entry; remove it from Settings > Apps. The
-portable zip installs nothing: extract it and run rufust.exe.
+portable rufust-<version>-windows-x86_64.exe installs nothing: run it
+directly.
 
 The window runs with your normal rights. When you press Start and confirm,
 Windows asks once for administrator approval for that operation only; the

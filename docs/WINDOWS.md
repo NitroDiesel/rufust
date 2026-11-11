@@ -132,13 +132,13 @@ cancellation. CI runs them on every push.
 
 ## Packaging
 
-The release workflow builds two downloads with the same four files:
-`rufust.exe`, `README.txt` (from `packaging/windows/`), `LICENSE.txt`, and
-`THIRD_PARTY.md`.
+The release workflow builds two downloads:
 
-- `rufust-<version>-windows-x86_64.zip`: portable, nothing installed.
+- `rufust-<version>-windows-x86_64.exe`: the portable executable itself,
+  nothing installed, like upstream Rufus.
 - `rufust-<version>-windows-x86_64-setup.exe`: an Inno Setup installer
-  (`packaging/windows/rufust.iss`). It installs per machine into Program Files
+  (`packaging/windows/rufust.iss`). It installs `rufust.exe`, `README.txt`
+  (from `packaging/windows/`), `LICENSE.txt`, and `THIRD_PARTY.md` per machine into Program Files
   with a Start menu entry, an optional desktop icon, and an uninstaller.
   Because only administrators can write to Program Files, a standard user
   cannot replace the executable that the elevated worker runs. Setup itself
