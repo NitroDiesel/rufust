@@ -340,18 +340,27 @@ mod serde_impls {
 mod tests {
     use super::*;
     use rufust_core::device::DeviceNumber;
+
+    /// Unix fixture paths, made absolute on Windows too.
+    fn test_path(unix: &str) -> std::path::PathBuf {
+        std::path::PathBuf::from(if cfg!(windows) {
+            format!("C:{unix}")
+        } else {
+            unix.to_owned()
+        })
+    }
+
     use rufust_core::plan::{PartitionScheme, VerificationLevel, WriteMode};
-    use std::path::PathBuf;
 
     fn sample_request() -> HelperRequest {
         HelperRequest {
             protocol_version: PROTOCOL_VERSION,
             job_id: JobId::new(42),
             target: TargetIdentity {
-                node: PathBuf::from("/dev/sdb"),
+                node: test_path("/dev/sdb"),
                 fingerprint: DeviceFingerprint {
                     number: DeviceNumber::new(8, 16),
-                    canonical_sysfs_path: PathBuf::from("/sys/devices/pci0000:00/usb"),
+                    canonical_sysfs_path: test_path("/sys/devices/pci0000:00/usb"),
                     size_bytes: 32_000_000_000,
                     logical_block_size: 512,
                     serial: Some("SN123".into()),
@@ -364,7 +373,7 @@ mod tests {
             operation: HelperOperation::WriteMedia {
                 write_mode: WriteMode::DdImage,
                 source: SourceSpec {
-                    path: PathBuf::from("/home/user/image.iso"),
+                    path: test_path("/home/user/image.iso"),
                     kind: ImageSourceKind::Iso,
                     size_bytes: 700_000_000,
                     decompressed_size_bytes: None,

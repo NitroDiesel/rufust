@@ -27,9 +27,11 @@ pub(crate) const UEFI_NTFS_SIZE: u64 = MIB;
 pub(crate) const UEFI_NTFS_NAME: &str = "UEFI:NTFS";
 pub(crate) const UEFI_NTFS_LABEL: &str = "UEFI_NTFS";
 pub(crate) const MAIN_PARTITION_NAME: &str = "Main Data Partition";
+#[cfg(target_os = "linux")]
 pub(crate) const GPT_BASIC_DATA: &str = "ebd0a0a2-b9e5-4433-87c0-68b6b72699c7";
 /// GPT_BASIC_DATA_ATTRIBUTE_NO_DRIVE_LETTER.
 pub(crate) const GPT_NO_DRIVE_LETTER: u64 = 1 << 63;
+#[cfg(target_os = "linux")]
 pub(crate) const MBR_ACTIVE: u64 = 0x80;
 
 macro_rules! payload {
@@ -77,6 +79,7 @@ pub(crate) struct Span {
 }
 
 impl Span {
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     pub fn end(self) -> u64 {
         self.offset + self.size
     }
@@ -231,16 +234,23 @@ fn destination(root: &Path, relative: &str) -> Result<PathBuf, HelperError> {
             relative.display()
         )));
     }
-    Ok(root.join(relative))
+    // Push each name so the separators suit the platform; Windows volume
+    // paths (`\?Volume{...}`) are verbatim and take no `/`.
+    let mut path = root.to_owned();
+    path.extend(relative.components());
+    Ok(path)
 }
 
 fn create_new(path: &Path) -> io::Result<File> {
-    use std::os::unix::fs::OpenOptionsExt;
-    std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC)
-        .open(path)
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_CLOEXEC);
+    }
+    // On Windows, CREATE_NEW already refuses an existing link.
+    options.open(path)
 }
 
 fn ensure_parent(path: &Path, root: &Path) -> Result<(), HelperError> {
@@ -411,7 +421,7 @@ fn find_copy<'a>(
     relative: &str,
     copies: &'a mut [CopiedFile],
 ) -> Option<&'a mut CopiedFile> {
-    let wanted = root.join(relative);
+    let wanted = destination(root, relative).ok()?;
     copies.iter_mut().find(|copy| {
         copy.path
             .to_str()
@@ -607,7 +617,6 @@ pub(crate) fn patch_boot_record(
 mod tests {
     use super::*;
     use rufust_image::isofs::fixture::{self, Node};
-    use std::os::unix::fs::DirBuilderExt;
 
     const GIB: u64 = 1024 * MIB;
 
@@ -623,10 +632,14 @@ mod tests {
                     .expect("clock")
                     .as_nanos()
             ));
-            std::fs::DirBuilder::new()
-                .mode(0o700)
-                .create(&path)
-                .expect("temporary directory");
+            #[cfg_attr(not(unix), allow(unused_mut))]
+            let mut builder = std::fs::DirBuilder::new();
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::DirBuilderExt;
+                builder.mode(0o700);
+            }
+            builder.create(&path).expect("temporary directory");
             Self(path)
         }
     }

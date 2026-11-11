@@ -1,6 +1,6 @@
 # Capability and compatibility matrix
 
-Rufust preserves upstream concepts where Linux has a safe implementation. It does not claim that a visible option works until it can be completed end to end. **Available** means enabled in this release; **blocked** means the input is recognized but Start remains disabled with a reason; **planned** means no complete product flow exists yet.
+Rufust preserves upstream concepts where each platform has a safe implementation. The tables first describe Linux; the [Windows](#windows) section lists what differs there. It does not claim that a visible option works until it can be completed end to end. **Available** means enabled in this release; **blocked** means the input is recognized but Start remains disabled with a reason; **planned** means no complete product flow exists yet.
 
 ## Available in 1.0
 
@@ -42,6 +42,42 @@ Rufust preserves upstream concepts where Linux has a safe implementation. It doe
 | Windows CA 2023 signed bootloaders | Needs `EFI_EX`/`Fonts_EX` extracted from the LZX-compressed `boot.wim`; the option is not shown yet. |
 | UEFI runtime validation and Secure Boot revocation checks | Verified payload, SBAT/SVN/DBX parsing and signed update data are not packaged. |
 | Drive capture | Root must write through a user-opened file descriptor; arbitrary root-owned output paths are intentionally rejected. |
+
+## Windows
+
+Windows 10 and 11 (x64) run the same interface, planner, protocol, and
+Windows-media code; the platform layer is described in
+[Windows](WINDOWS.md). Unless the table says otherwise, a capability above is
+available on Windows with the same checks, and every Linux block below still
+applies.
+
+| Capability | Windows implementation | Notes |
+|---|---|---|
+| Removable-device discovery | Disk interface enumeration and storage IOCTLs, without elevation | The disk holding Windows, the system partition, page files, mounted volumes, and spanned volumes are marked; virtual disks are never listed. Hot-plug polling of disks and volumes. |
+| Authorized destructive operations | An elevated copy of `rufust.exe`, approved through UAC per operation and driven over private named pipes | The window never runs as administrator. Pipe clients must be the started worker. Target identity (interface path, disk number, size, sector size, serial, model) is resolved again before writing. |
+| Exclusive access | Every target volume is locked and dismounted before raw I/O | A volume in use is retried, then force-dismounted; a volume that still cannot be locked stops the operation. |
+| MBR/GPT/super-floppy formatting | `IOCTL_DISK_CREATE_DISK` / `SET_DRIVE_LAYOUT_EX` | Super floppy needs removable media, where Windows mounts a whole-disk volume. |
+| FAT, FAT32, exFAT, NTFS, UDF | Windows' `fmifs.dll` `FormatEx`; FAT32 over 32 GB by a built-in formatter after upstream's `FormatLargeFAT32` | ext2/3/4 and ReFS are not offered on Windows. |
+| Compressed raw images | In-process gzip, bzip2, xz, lzma, zstd, and single-file zip decoders | Capacity-bounded; decoding errors and size mismatches are fatal. Archives with several files are refused. |
+| VHD/VHDX writing | Attached read-only through `virtdisk.dll` | Standalone images with 512-byte sectors; differencing disks are refused. The preview reads the capacity without elevation. |
+| Windows installer media | Same layout and boot records | The MBR UEFI:NTFS partition becomes type 0xEF once its files are in. Copied files are read back after a dismount. |
+| Bad-block test, verification, cancellation | Built into the engine | Cancellation is a `cancel` line on the control pipe or the window closing it. |
+| Light and dark presentation | Same Slint workbench | Follows the Windows app mode; `%APPDATA%\Rufust\settings.conf`. |
+| Portable desktop | `rufust-<version>-windows-x86_64.zip` | One executable with an `asInvoker` manifest; not code-signed yet. |
+
+Blocked only on Windows: ext2/3/4 creation (no Windows formatter) and ReFS
+creation (only Pro for Workstations, Enterprise, and Server editions allow it,
+through VDS).
+
+## Unreleased: Windows support
+
+Rufust now runs on Windows 10 and 11 (x64), alongside the Linux build, with
+the capabilities in the [Windows](#windows) table. The window stays
+unprivileged and each operation runs in an elevated copy of itself after one
+UAC approval. Elevated tests on throwaway VHDX disks format with every
+provider and scheme, write raw, gzip, and VHDX images with read-back
+verification, build Windows installer media, run large FAT32, and cancel
+through the worker pipes. Linux behavior is unchanged.
 
 ## Changes in 1.1.0
 

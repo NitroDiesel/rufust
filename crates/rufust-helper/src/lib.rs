@@ -1,44 +1,85 @@
-//! Disk operation engines. The root helper binary is a thin CLI around
-//! [`execute`]; [`execute_with_udisks`] runs the same operations as the
-//! desktop user through the system udisks2 daemon.
+//! Disk operation engines.
+//!
+//! On Linux, the root helper binary is a thin CLI around [`execute`], and
+//! [`execute_with_udisks`] runs the same operations as the desktop user
+//! through the system udisks2 daemon. On Windows, [`execute`] runs in an
+//! elevated worker that the desktop starts through UAC and drives over a
+//! private named pipe ([`serve_pipe`]).
 
-use std::ffi::{CStr, CString};
-use std::fs::File;
-use std::io::{self, Read, Seek, SeekFrom, Write};
-use std::os::fd::AsRawFd;
-use std::os::unix::fs::{FileTypeExt, MetadataExt, OpenOptionsExt};
-use std::os::unix::process::CommandExt;
-use std::path::{Path, PathBuf};
-use std::process::{Child, Command, ExitStatus, Stdio};
-use std::ptr;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::io::{self, Write};
+use std::path::PathBuf;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use fs2::FileExt;
-use rufust_core::plan::{FileSystem, PartitionScheme, VerificationLevel, WriteMode};
+use rufust_core::plan::{FileSystem, PartitionScheme};
 use rufust_core::progress::{
     Cancellability, CancellationToken, JobId, ProgressStage, ProgressUnit,
 };
 use rufust_helper_protocol::{
-    encode_line, FormatSpec, HelperEvent, HelperOperation, HelperRequest, HelperResult,
-    ProtocolError, TargetIdentity,
+    encode_line, FormatSpec, HelperEvent, HelperOperation, HelperRequest, ProtocolError,
+    TargetIdentity,
 };
-use rufust_platform::{
-    discover_devices, mount_belongs_to_identity, mount_records, DeviceIdentity, PlatformError,
-};
-use sha2::{Digest, Sha256};
+use rufust_platform::PlatformError;
 use thiserror::Error;
 
+#[cfg(target_os = "linux")]
+use std::ffi::{CStr, CString};
+#[cfg(target_os = "linux")]
+use std::fs::File;
+#[cfg(target_os = "linux")]
+use std::io::{Read, Seek, SeekFrom};
+#[cfg(target_os = "linux")]
+use std::os::fd::AsRawFd;
+#[cfg(target_os = "linux")]
+use std::os::unix::fs::{FileTypeExt, MetadataExt, OpenOptionsExt};
+#[cfg(target_os = "linux")]
+use std::os::unix::process::CommandExt;
+#[cfg(target_os = "linux")]
+use std::path::Path;
+#[cfg(target_os = "linux")]
+use std::process::{Child, Command, ExitStatus, Stdio};
+#[cfg(target_os = "linux")]
+use std::ptr;
+#[cfg(target_os = "linux")]
+use std::time::{Duration, Instant};
+
+#[cfg(target_os = "linux")]
+use fs2::FileExt;
+#[cfg(target_os = "linux")]
+use rufust_core::plan::{VerificationLevel, WriteMode};
+#[cfg(target_os = "linux")]
+use rufust_helper_protocol::HelperResult;
+#[cfg(target_os = "linux")]
+use rufust_platform::{discover_devices, mount_belongs_to_identity, mount_records, DeviceIdentity};
+#[cfg(target_os = "linux")]
+use sha2::{Digest, Sha256};
+
 pub const HELPER_VERSION: &str = env!("CARGO_PKG_VERSION");
+#[cfg(target_os = "linux")]
 const DECODER_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
 
+mod engine;
+#[cfg(any(windows, test))]
+mod fat32;
+#[cfg(target_os = "linux")]
 mod source_snapshot;
+#[cfg(target_os = "linux")]
 mod udisks;
+#[cfg(target_os = "linux")]
 mod udisks_engine;
 mod unattend;
+#[cfg(target_os = "linux")]
 mod virtual_disk;
+#[cfg(windows)]
+mod windows;
 mod windows_media;
 
+#[cfg(target_os = "linux")]
 pub use udisks_engine::{execute_with_udisks, udisks_readiness, validate_udisks_request};
+#[cfg(windows)]
+pub use windows::{
+    execute, inspect_virtual_disk_for_user, is_elevated, revalidate_target, serve_pipe,
+    validate_request,
+};
 
 #[derive(Debug, Error)]
 pub enum HelperError {
@@ -63,6 +104,7 @@ pub enum HelperError {
 /// This preview is advisory: a read-only descriptor does not prevent another
 /// process from changing its inode. Execution must protect and inspect the
 /// source again before preparing the target. The descriptor's offset may move.
+#[cfg(target_os = "linux")]
 pub fn inspect_virtual_disk_for_user(
     source: &File,
     kind: rufust_core::plan::ImageSourceKind,
@@ -95,6 +137,7 @@ pub fn inspect_virtual_disk_for_user(
 }
 
 /// Fixed absolute paths for formatters. Never taken from the environment.
+#[cfg(target_os = "linux")]
 pub mod tools {
     pub const PARTED: &[&str] = &["/usr/sbin/parted", "/usr/bin/parted", "/sbin/parted"];
     pub const MKFS_FAT: &[&str] = &["/usr/sbin/mkfs.fat", "/usr/bin/mkfs.fat", "/sbin/mkfs.fat"];
@@ -126,6 +169,7 @@ pub mod tools {
     pub const BSDTAR: &[&str] = &["/usr/bin/bsdtar", "/bin/bsdtar"];
 }
 
+#[cfg(target_os = "linux")]
 fn find_tool(candidates: &'static [&'static str]) -> Result<&'static str, HelperError> {
     candidates
         .iter()
@@ -134,6 +178,7 @@ fn find_tool(candidates: &'static [&'static str]) -> Result<&'static str, Helper
         .ok_or_else(|| HelperError::MissingTool(candidates.join(" or ")))
 }
 
+#[cfg(target_os = "linux")]
 #[derive(Clone, Debug)]
 struct InvokingUser {
     uid: libc::uid_t,
@@ -141,6 +186,7 @@ struct InvokingUser {
     username: CString,
 }
 
+#[cfg(target_os = "linux")]
 impl InvokingUser {
     fn for_execution() -> Result<Self, HelperError> {
         let effective_uid = unsafe { libc::geteuid() };
@@ -215,12 +261,14 @@ impl InvokingUser {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn parse_pkexec_uid(value: &str) -> Result<libc::uid_t, HelperError> {
     value.parse::<libc::uid_t>().map_err(|_| {
         HelperError::Operation("PKEXEC_UID must be an unsigned numeric user id".into())
     })
 }
 
+#[cfg(target_os = "linux")]
 fn supplementary_groups() -> Result<Vec<libc::gid_t>, HelperError> {
     let count = unsafe { libc::getgroups(0, ptr::null_mut()) };
     if count < 0 {
@@ -236,6 +284,7 @@ fn supplementary_groups() -> Result<Vec<libc::gid_t>, HelperError> {
     Ok(groups)
 }
 
+#[cfg(target_os = "linux")]
 fn set_supplementary_groups(groups: &[libc::gid_t]) -> io::Result<()> {
     let pointer = if groups.is_empty() {
         ptr::null()
@@ -248,6 +297,7 @@ fn set_supplementary_groups(groups: &[libc::gid_t]) -> io::Result<()> {
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn set_effective_uid(uid: libc::uid_t) -> io::Result<()> {
     if unsafe { libc::seteuid(uid) } != 0 {
         return Err(io::Error::last_os_error());
@@ -255,6 +305,7 @@ fn set_effective_uid(uid: libc::uid_t) -> io::Result<()> {
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn set_effective_gid(gid: libc::gid_t) -> io::Result<()> {
     if unsafe { libc::setegid(gid) } != 0 {
         return Err(io::Error::last_os_error());
@@ -262,6 +313,7 @@ fn set_effective_gid(gid: libc::gid_t) -> io::Result<()> {
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn restore_root_credentials(
     original_gid: libc::gid_t,
     original_groups: &[libc::gid_t],
@@ -272,6 +324,7 @@ fn restore_root_credentials(
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn open_source_as_user(path: &Path, user: &InvokingUser) -> Result<File, HelperError> {
     let open = || {
         std::fs::OpenOptions::new()
@@ -308,6 +361,7 @@ fn open_source_as_user(path: &Path, user: &InvokingUser) -> Result<File, HelperE
     Ok(opened?)
 }
 
+#[cfg(target_os = "linux")]
 fn bind_source(
     source: &rufust_helper_protocol::SourceSpec,
     user: &InvokingUser,
@@ -327,6 +381,7 @@ fn bind_source(
     Ok(file)
 }
 
+#[cfg(target_os = "linux")]
 fn source_is_on_target(source: &File, target: &DeviceIdentity) -> Result<bool, HelperError> {
     let source_device = source.metadata()?.dev();
     let source_sysfs = PathBuf::from(format!(
@@ -341,6 +396,7 @@ fn source_is_on_target(source: &File, target: &DeviceIdentity) -> Result<bool, H
     }
 }
 
+#[cfg(target_os = "linux")]
 pub fn tool_for_filesystem(fs: FileSystem) -> Result<&'static str, HelperError> {
     let candidates = match fs {
         FileSystem::Fat | FileSystem::Fat32 => tools::MKFS_FAT,
@@ -358,6 +414,7 @@ pub fn tool_for_filesystem(fs: FileSystem) -> Result<&'static str, HelperError> 
 }
 
 /// Re-resolve the target and compare fingerprints strictly.
+#[cfg(target_os = "linux")]
 pub fn revalidate_target(expected: &TargetIdentity) -> Result<DeviceIdentity, HelperError> {
     let devices = discover_devices(true)?;
     let observed = devices
@@ -407,6 +464,7 @@ pub fn revalidate_target(expected: &TargetIdentity) -> Result<DeviceIdentity, He
     Ok(observed)
 }
 
+#[cfg(target_os = "linux")]
 fn validate_observed_identity(
     expected: &TargetIdentity,
     observed: &DeviceIdentity,
@@ -447,6 +505,7 @@ fn validate_observed_identity(
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn sysfs_has_holders(device: &DeviceIdentity) -> Result<bool, HelperError> {
     let class_path = Path::new("/sys/class/block").join(&device.kernel_name);
     let mut nodes = vec![class_path.clone()];
@@ -468,6 +527,7 @@ fn sysfs_has_holders(device: &DeviceIdentity) -> Result<bool, HelperError> {
 }
 
 /// Validate a request without performing destructive I/O.
+#[cfg(target_os = "linux")]
 pub fn validate_request(request: &HelperRequest) -> Result<(), HelperError> {
     request.validate()?;
     match &request.operation {
@@ -560,12 +620,14 @@ fn check_cancel(cancel: &CancellationToken) -> Result<(), HelperError> {
     }
 }
 
+#[cfg(target_os = "linux")]
 struct ManagedChild {
     child: Child,
     process_group: libc::pid_t,
     reaped: bool,
 }
 
+#[cfg(target_os = "linux")]
 impl ManagedChild {
     fn spawn(command: &mut Command, context: &str) -> Result<Self, HelperError> {
         // SAFETY: only async-signal-safe syscalls run between fork and exec.
@@ -721,6 +783,7 @@ impl ManagedChild {
     }
 }
 
+#[cfg(target_os = "linux")]
 impl Drop for ManagedChild {
     fn drop(&mut self) {
         if !self.reaped {
@@ -731,6 +794,7 @@ impl Drop for ManagedChild {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn run_command(
     command: &mut Command,
     cancel: &CancellationToken,
@@ -764,6 +828,7 @@ fn progress(
 }
 
 /// Execute (or dry-run) a validated helper request.
+#[cfg(target_os = "linux")]
 pub fn execute(
     mut request: HelperRequest,
     options: ExecutionOptions,
@@ -1119,6 +1184,7 @@ pub fn execute(
     Ok(result)
 }
 
+#[cfg(target_os = "linux")]
 struct PartitionFormatContext<'a> {
     job_id: JobId,
     dry_run: bool,
@@ -1128,6 +1194,7 @@ struct PartitionFormatContext<'a> {
     cancel: &'a CancellationToken,
 }
 
+#[cfg(target_os = "linux")]
 fn run_partition_format(
     target_node: &Path,
     format: &FormatSpec,
@@ -1185,6 +1252,7 @@ fn run_partition_format(
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn unmount_target(
     identity: &DeviceIdentity,
     cancel: &CancellationToken,
@@ -1237,6 +1305,7 @@ fn unmount_target(
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn parse_swap_sources(input: &str) -> Result<Vec<&str>, &'static str> {
     let mut lines = input.lines();
     let header = lines.next().ok_or("swap state is empty")?;
@@ -1259,6 +1328,7 @@ fn parse_swap_sources(input: &str) -> Result<Vec<&str>, &'static str> {
     Ok(sources)
 }
 
+#[cfg(target_os = "linux")]
 fn node_is_device_or_partition(candidate: &Path, disk: &Path) -> bool {
     let candidate = candidate.to_string_lossy();
     let disk = disk.to_string_lossy();
@@ -1279,6 +1349,7 @@ fn node_is_device_or_partition(candidate: &Path, disk: &Path) -> bool {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn wipe_leading(node: &Path, cancel: &CancellationToken) -> Result<(), HelperError> {
     let mut file = std::fs::OpenOptions::new().write(true).open(node)?;
     let zeros = vec![0u8; 1024 * 1024];
@@ -1293,6 +1364,7 @@ fn wipe_leading(node: &Path, cancel: &CancellationToken) -> Result<(), HelperErr
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn create_partition_table(
     node: &Path,
     scheme: PartitionScheme,
@@ -1335,6 +1407,7 @@ fn create_partition_table(
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn first_partition_node(disk: &Path) -> PathBuf {
     let name = disk.to_string_lossy();
     if name.chars().last().is_some_and(|c| c.is_ascii_digit()) {
@@ -1344,6 +1417,7 @@ fn first_partition_node(disk: &Path) -> PathBuf {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn wait_for_first_partition(
     disk: &Path,
     cancel: &CancellationToken,
@@ -1368,6 +1442,7 @@ fn wait_for_first_partition(
     )))
 }
 
+#[cfg(target_os = "linux")]
 fn reread_partition_table(node: &Path, cancel: &CancellationToken) -> Result<(), HelperError> {
     let blockdev = find_tool(tools::BLOCKDEV)?;
     let mut command = Command::new(blockdev);
@@ -1381,6 +1456,7 @@ fn reread_partition_table(node: &Path, cancel: &CancellationToken) -> Result<(),
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn format_partition(
     part: &Path,
     format: &FormatSpec,
@@ -1444,6 +1520,7 @@ fn format_partition(
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn add_ext_block_size(cmd: &mut Command, size: Option<u32>) -> Result<(), HelperError> {
     if let Some(size) = size {
         if !matches!(size, 1024 | 2048 | 4096) {
@@ -1456,18 +1533,21 @@ fn add_ext_block_size(cmd: &mut Command, size: Option<u32>) -> Result<(), Helper
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 #[derive(Debug)]
 struct WriteReceipt {
     bytes_written: u64,
     sha256: [u8; 32],
 }
 
+#[cfg(target_os = "linux")]
 struct WriteSource<'a> {
     file: &'a File,
     spec: &'a rufust_helper_protocol::SourceSpec,
     invoking_user: Option<&'a InvokingUser>,
 }
 
+#[cfg(target_os = "linux")]
 fn write_image(
     target: &File,
     source: WriteSource<'_>,
@@ -1632,6 +1712,7 @@ fn write_image(
     }
 }
 
+#[cfg(target_os = "linux")]
 fn read_image_chunk(
     reader: &mut impl Read,
     buffer: &mut [u8],
@@ -1658,6 +1739,7 @@ fn read_image_chunk(
     }
 }
 
+#[cfg(target_os = "linux")]
 fn set_nonblocking(fd: libc::c_int) -> Result<(), HelperError> {
     let flags = unsafe { libc::fcntl(fd, libc::F_GETFL) };
     if flags < 0 {
@@ -1669,6 +1751,7 @@ fn set_nonblocking(fd: libc::c_int) -> Result<(), HelperError> {
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn finish_image_write(
     destination: &File,
     decoder: &mut Option<ManagedChild>,
@@ -1687,6 +1770,7 @@ fn finish_image_write(
     }
 }
 
+#[cfg(target_os = "linux")]
 fn drop_decoder_privileges(command: &mut Command, user: &InvokingUser) {
     if unsafe { libc::geteuid() } != 0 {
         return;
@@ -1714,6 +1798,7 @@ fn drop_decoder_privileges(command: &mut Command, user: &InvokingUser) {
     }
 }
 
+#[cfg(target_os = "linux")]
 fn decompressor_for(path: &Path) -> Result<(&'static str, Vec<&'static str>), HelperError> {
     let extension = path
         .extension()
@@ -1732,6 +1817,7 @@ fn decompressor_for(path: &Path) -> Result<(&'static str, Vec<&'static str>), He
     }
 }
 
+#[cfg(target_os = "linux")]
 fn verify_device_hash(
     device: &Path,
     size: u64,
@@ -1763,6 +1849,7 @@ fn verify_device_hash(
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn flush_device(node: &Path, cancel: &CancellationToken) -> Result<(), HelperError> {
     let blockdev = find_tool(tools::BLOCKDEV)?;
     let mut command = Command::new(blockdev);
@@ -1776,6 +1863,7 @@ fn flush_device(node: &Path, cancel: &CancellationToken) -> Result<(), HelperErr
     Ok(())
 }
 
+#[cfg(target_os = "linux")]
 fn run_badblocks(node: &Path, cancel: &CancellationToken) -> Result<(), HelperError> {
     let badblocks = find_tool(tools::BADBLOCKS)?;
     let mut command = Command::new(badblocks);
@@ -1817,7 +1905,11 @@ pub fn sample_dry_request(target_node: PathBuf) -> HelperRequest {
             node: target_node.clone(),
             fingerprint: DeviceFingerprint {
                 number: DeviceNumber::new(0, 0),
-                canonical_sysfs_path: PathBuf::from("/sys/devices/virtual/dry-run"),
+                canonical_sysfs_path: PathBuf::from(if cfg!(windows) {
+                    r"\\?\dry-run"
+                } else {
+                    "/sys/devices/virtual/dry-run"
+                }),
                 size_bytes: 8 * 1024 * 1024 * 1024,
                 logical_block_size: 512,
                 serial: Some("DRYRUN".into()),
@@ -1851,7 +1943,7 @@ pub fn write_event_line(out: &mut impl Write, event: &HelperEvent) -> Result<(),
     Ok(())
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
     use rufust_core::device::{DeviceFingerprint, DeviceNumber};

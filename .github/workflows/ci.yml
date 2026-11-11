@@ -70,6 +70,33 @@ jobs:
       - name: Helper smoke test
         run: target/release/rufust-helper --dry-run /dev/null
 
+  windows:
+    name: Windows
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: dtolnay/rust-toolchain@bc540ba06a4ccee415bb241490e0b25ee8e7d315
+        with:
+          components: rustfmt, clippy
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Lint
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Release build
+        run: cargo build --workspace --release --locked
+      - name: Helper smoke test
+        run: target\release\rufust-helper.exe --dry-run
+      - name: Desktop version
+        shell: pwsh
+        run: |
+          $version = & target\release\rufust.exe --version | Out-String
+          if ($version.Trim() -notmatch '^rufust \d+\.\d+\.\d+$') { throw "unexpected version: $version" }
+      # Runners are elevated, so the engine can be exercised end to end on
+      # disposable VHDX disks; the tests refuse any other disk.
+      - name: Virtual disk integration
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\windows\vhd-tests.ps1
+
   distro-builds:
     runs-on: ubuntu-24.04
     strategy:

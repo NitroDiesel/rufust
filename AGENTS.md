@@ -12,13 +12,20 @@ releases, or UI behavior, also read the branch-specific document named in the
 context file before editing. Completion means the implementation, capability
 matrix, project context, and verification evidence agree.
 
+Rufust ships on Linux and Windows. Platform code lives in `windows` and Linux
+modules beside shared code; read [`docs/WINDOWS.md`](docs/WINDOWS.md) before
+changing Windows behavior, and keep both builds passing (`cargo clippy
+--workspace --all-targets -- -D warnings` on each). A change to shared code is
+not done until it works on both.
+
 ## UI work
 
 Use the `frontend-design` skill and a bounded UI review subagent when those
 capabilities are available. Preserve the compact Device Workbench direction,
 original Rufus icon assets, keyboard access, true modal blocking, and verified
 light/dark layouts. Visually test the smallest supported window and a maximized
-window before declaring UI work complete.
+window before declaring UI work complete, on Linux and on Windows when the
+change can render differently there.
 
 ## Commit attribution
 

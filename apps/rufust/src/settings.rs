@@ -1,5 +1,6 @@
-//! Preferences kept across launches in
-//! `$XDG_CONFIG_HOME/rufust/settings.conf` as `key=value` lines.
+//! Preferences kept across launches as `key=value` lines in
+//! `$XDG_CONFIG_HOME/rufust/settings.conf` on Linux and
+//! `%APPDATA%Rufustsettings.conf` on Windows.
 
 use std::path::PathBuf;
 
@@ -93,6 +94,19 @@ impl Settings {
 const CONFIG_DIR: &str = "rufust";
 const LEGACY_CONFIG_DIR: &str = "rufus-linux";
 
+#[cfg(windows)]
+fn path_in(dir: &str) -> Option<PathBuf> {
+    // Rufus Linux never ran on Windows, so there is nothing to migrate.
+    if dir == LEGACY_CONFIG_DIR {
+        return None;
+    }
+    let base = std::env::var_os("APPDATA")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute())?;
+    Some(base.join("Rufust").join("settings.conf"))
+}
+
+#[cfg(not(windows))]
 fn path_in(dir: &str) -> Option<PathBuf> {
     let base = std::env::var_os("XDG_CONFIG_HOME")
         .map(PathBuf::from)

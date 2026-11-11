@@ -1,17 +1,27 @@
-//! Linux platform integration kept separate from the portable planning core.
+//! Linux and Windows platform integration kept separate from the portable
+//! planning core.
 //!
-//! Discovery reads sysfs rather than parsing human-facing `lsblk` output.
+//! On Linux, discovery reads sysfs rather than parsing human-facing `lsblk`
+//! output. On Windows, it queries each disk interface with storage IOCTLs.
 //! Destructive jobs must revalidate a returned [`DeviceIdentity`] inside the
 //! privileged helper immediately before opening the block device.
 
 use std::fmt;
 use std::path::{Path, PathBuf};
 
-use rufust_core::capability::{Capability, CapabilityReport, CapabilityState, MissingRequirement};
+use rufust_core::capability::CapabilityReport;
+#[cfg(not(windows))]
+use rufust_core::capability::{Capability, CapabilityState, MissingRequirement};
 use rufust_core::device::{
     BlockDevice, DeviceClass, DeviceFingerprint, DeviceNumber, DeviceRisk, Transport,
 };
 
+#[cfg(windows)]
+pub mod windows;
+
+/// A disk as the platform reports it. On Windows, `node` is
+/// `\\.\PhysicalDriveN`, `sysfs_path` is the disk's device interface path,
+/// `major` is 0, and `minor` is the disk number.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DeviceIdentity {
     pub node: PathBuf,
@@ -198,6 +208,18 @@ pub fn mount_belongs_to_identity(mount: &MountRecord, device: &DeviceIdentity) -
 
 /// Conservative source-on-target check based on the longest containing mount.
 pub fn path_is_on_block_device(path: &Path, device: &BlockDevice) -> bool {
+    #[cfg(windows)]
+    {
+        windows::path_is_on_block_device(path, device)
+    }
+    #[cfg(not(windows))]
+    {
+        path_is_on_mounted_block_device(path, device)
+    }
+}
+
+#[cfg(not(windows))]
+fn path_is_on_mounted_block_device(path: &Path, device: &BlockDevice) -> bool {
     let canonical = std::fs::canonicalize(path).unwrap_or_else(|_| path.to_owned());
     let mut mounts = mount_records().unwrap_or_default();
     mounts.sort_by_key(|mount| std::cmp::Reverse(mount.mount_point.as_os_str().len()));
@@ -234,7 +256,14 @@ fn source_is_device_or_partition(source: &str, disk: &Path) -> bool {
 }
 
 pub fn discover_devices(show_fixed: bool) -> Result<Vec<DeviceIdentity>, PlatformError> {
-    discover_devices_from(Path::new("/sys/class/block"), show_fixed)
+    #[cfg(windows)]
+    {
+        windows::discover_devices(show_fixed)
+    }
+    #[cfg(not(windows))]
+    {
+        discover_devices_from(Path::new("/sys/class/block"), show_fixed)
+    }
 }
 
 pub fn discover_devices_from(
@@ -256,6 +285,18 @@ pub fn discover_devices_from(
 
 /// Discover devices and map them into core [`BlockDevice`] values with risk tags.
 pub fn list_block_devices(show_fixed: bool) -> Result<Vec<BlockDevice>, PlatformError> {
+    #[cfg(windows)]
+    {
+        windows::list_block_devices(show_fixed)
+    }
+    #[cfg(not(windows))]
+    {
+        list_mounted_block_devices(show_fixed)
+    }
+}
+
+#[cfg(not(windows))]
+fn list_mounted_block_devices(show_fixed: bool) -> Result<Vec<BlockDevice>, PlatformError> {
     let mounts = mount_records().unwrap_or_default();
     let identities = discover_devices(show_fixed)?;
     Ok(identities
@@ -322,6 +363,18 @@ fn unescape_mount_field(value: &str) -> String {
 
 /// Probe installed tools and return a capability report.
 pub fn probe_capabilities() -> CapabilityReport {
+    #[cfg(windows)]
+    {
+        windows::probe_capabilities()
+    }
+    #[cfg(not(windows))]
+    {
+        probe_linux_capabilities()
+    }
+}
+
+#[cfg(not(windows))]
+fn probe_linux_capabilities() -> CapabilityReport {
     let mut report = CapabilityReport::new();
 
     let set_tool = |report: &mut CapabilityReport,
@@ -814,9 +867,15 @@ mod tests {
 
     #[test]
     fn capability_probe_marks_refs_unavailable() {
+        use rufust_core::capability::Capability;
         let report = probe_capabilities();
         assert!(!report.supports(Capability::FormatRefs));
         assert!(!report.supports(Capability::ImageCaptureFfu));
+        if cfg!(windows) {
+            assert!(report.supports(Capability::RawImageWrite));
+            assert!(!report.supports(Capability::FormatExt4));
+            return;
+        }
         let tools = [
             Path::new("/usr/bin/qemu-nbd").exists(),
             Path::new("/usr/bin/nbdinfo").exists(),

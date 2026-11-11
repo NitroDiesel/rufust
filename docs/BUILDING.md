@@ -88,7 +88,8 @@ The `packaging/` directory contains integration metadata and starter recipes:
 - `polkit/` — authorization policy for the narrow helper;
 - `tmpfiles/` — volatile root-owned runtime directory;
 - `debian/`, `rpm/`, `arch/` — distribution recipes;
-- `appimage/` — AppImage staging, verification, launcher, and security notes.
+- `appimage/` — AppImage staging, verification, launcher, and security notes;
+- `windows/` — the README shipped in the Windows zip.
 
 Recipes intentionally do not download proprietary boot or Windows assets. Release builders must be reproducible, use Cargo's locked dependencies, generate a software bill of materials, and preserve license texts.
 
@@ -137,3 +138,29 @@ The release workflow supplies SHA-verified appimagetool and type-2 runtime
 artifacts and embeds GitHub zsync update information. Do not stage the helper,
 polkit policy, setuid files, partitioning tools, formatters, glibc, or graphics
 drivers in the AppDir. The native package owns the privileged integration.
+
+## Windows
+
+Build on Windows 10/11 with the Rust MSVC toolchain (rustup) and Visual Studio
+Build Tools with the "Desktop development with C++" workload. The Windows SDK
+resource compiler embeds the original Rufus icon and the `asInvoker` manifest
+into `rufust.exe`; `apps/rufust/build.rs` assembles the icon from
+`assets/icons/`. No other system libraries or tools are needed: formatting
+uses Windows' own providers, and decoders are linked in.
+
+```powershell
+cargo build --release --locked -p rufust
+cargo test --workspace --locked
+cargo clippy --workspace --all-targets --locked -- -D warnings
+```
+
+From an elevated PowerShell, `scripts\windows\vhd-tests.ps1` runs the
+end-to-end tests on throwaway VHDX disks (see [Windows](WINDOWS.md)). CI runs
+the same steps on `windows-2022`.
+
+The release workflow's Windows job packages
+`rufust-<version>-windows-x86_64.zip` with `rufust.exe`,
+`packaging/windows/README.txt`, `LICENSE.txt`, and `THIRD_PARTY.md`. It checks
+the reported version, the x86-64 PE machine, and the embedded `asInvoker`
+manifest before the zip joins `SHA256SUMS` and the build provenance. Do not
+ship a manifest that requests elevation: the window must stay unprivileged.

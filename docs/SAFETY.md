@@ -1,6 +1,6 @@
 # Safety and privilege model
 
-The safety boundary is more important than feature parity. The desktop process must be usable without root privileges and must never gain ambient raw-disk access.
+The safety boundary is more important than feature parity. The desktop process must be usable without root or administrator privileges and must never gain ambient raw-disk access. The sections below describe Linux; [Windows](#windows) keeps the same boundary with UAC.
 
 ## Process boundary
 
@@ -110,3 +110,35 @@ require the root-owned `/usr/libexec/rufust-helper` and exact-path policy
 installed by a native package; the desktop checks file ownership, write
 permissions, policy content, and the effective registered action before
 launching `pkexec`.
+
+## Windows
+
+The same boundary holds on Windows, with UAC in place of polkit:
+
+```text
+rufust.exe (user, unelevated)
+  -> discover disks with zero-access IOCTL queries
+  -> build the plan and show the target-specific confirmation
+  -> create two single-instance, local-only pipes with random names
+  -> start rufust.exe --elevated-worker <name> with "runas" (UAC prompt)
+  -> accept only clients whose process ID is that worker's
+  -> send one request; render events; "cancel" or closing cancels
+
+Elevated worker (administrator, no window)
+  -> validate the typed request; refuse anything but \\.\PhysicalDriveN
+  -> open the source refusing links, deny other writers, recheck its size
+  -> refuse a source on the target; rediscover and compare the interface
+     path, disk number, size, sector size, serial, and model
+  -> refuse read-only targets and disks holding Windows, the system
+     partition, a page file, or part of a spanned volume
+  -> lock and dismount every target volume for the whole raw write
+  -> write, verify, flush, and exit
+```
+
+The window never runs elevated and never opens a disk; disk discovery opens
+devices with no access rights. Each operation needs its own UAC approval, and
+declining writes nothing. Virtual disks are never listed as targets. The
+worker runs the bytes of the executable the user started, as upstream Rufus
+does; Authenticode signing of releases is an open gate. Compressed images are
+decoded in the elevated worker, so only memory-safe Rust decoders are used
+there. Formatting uses Windows' own file system providers.

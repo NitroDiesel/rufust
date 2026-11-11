@@ -135,6 +135,15 @@ impl BlockDevice {
 mod tests {
     use super::*;
 
+    /// Unix fixture paths, made absolute on Windows too.
+    fn test_path(unix: &str) -> std::path::PathBuf {
+        std::path::PathBuf::from(if cfg!(windows) {
+            format!("C:{unix}")
+        } else {
+            unix.to_owned()
+        })
+    }
+
     #[test]
     fn fingerprint_requires_sane_block_geometry() {
         let mut fingerprint = fingerprint();
@@ -156,7 +165,7 @@ mod tests {
     fn fingerprint() -> DeviceFingerprint {
         DeviceFingerprint {
             number: DeviceNumber::new(8, 16),
-            canonical_sysfs_path: PathBuf::from("/sys/devices/example"),
+            canonical_sysfs_path: test_path("/sys/devices/example"),
             size_bytes: 16 * 1024 * 1024,
             logical_block_size: 512,
             serial: Some("serial".into()),

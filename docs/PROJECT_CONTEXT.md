@@ -8,14 +8,14 @@ and planned.
 
 ## Product identity
 
-Rufust is an independent, Linux-native port inspired by
+Rufust is an independent Linux and Windows port inspired by
 [Rufus](https://github.com/pbatard/rufus). It is not produced, endorsed, or
 supported by the upstream Rufus project. Preserve that disclaimer anywhere the
 name and original public-domain Rufus icon could imply official affiliation.
 
 The product target is a trustworthy USB device workbench for Arch Linux,
-Debian/Ubuntu, and Fedora. Feature parity means implementing an upstream concept
-safely on Linux; it does not mean exposing a control before its full operation
+Debian/Ubuntu, Fedora, and Windows 10/11 (x64). Feature parity means
+implementing an upstream concept safely on each platform; it does not mean exposing a control before its full operation
 is implemented and verified.
 
 ## Current baseline: 1.1.0
@@ -79,6 +79,37 @@ end-to-end implementation and its fixtures, integration tests, and boot tests
 exist. Supported standalone 512-byte-sector VHD/VHDX images convert when
 `qemu-nbd`, `nbdinfo`, and `nbdcopy` are installed.
 
+## Windows support (unreleased, after 1.1.0)
+
+Rufust also runs on Windows 10 and 11 (x64). The UI, planner, helper
+protocol, image analysis, Windows-media layout, answer files, and boot records
+are shared; device discovery, privilege, and the disk engine are Windows
+modules. Read [`WINDOWS.md`](WINDOWS.md) before changing them. In short:
+
+- the window stays unprivileged; each operation runs in an elevated copy of
+  `rufust.exe` (`--elevated-worker <pipe>`), approved through UAC, that serves
+  one request over two private named pipes and accepts only its own process;
+- discovery uses zero-access storage IOCTLs; the disk holding Windows, the
+  system partition, page files, spanned volumes, and virtual disks are
+  protected or hidden;
+- the engine locks and dismounts the target's volumes, partitions with the
+  disk IOCTLs, formats with Windows' `FormatEx` plus a built-in large-FAT32
+  formatter, decodes compressed images in process, and attaches VHD/VHDX
+  read-only through `virtdisk.dll`;
+- ext2/3/4 and ReFS creation are not offered on Windows; everything else in
+  the Linux capability set is available there.
+
+Verification evidence: `cargo test` and `cargo clippy -D warnings` pass on
+Windows; the elevated `scripts/windows/vhd-tests.ps1` passes on throwaway VHDX
+disks (every provider and scheme, raw/gzip/VHDX writes with read-back, Windows
+media for MBR BIOS+UEFI with UEFI:NTFS, GPT UEFI, and FAT32, large FAT32, and
+the window's pipe launcher including cancellation); discovery and the VHD
+capacity preview pass under a non-administrator token; and the release build
+renders the workbench in the fixed 560x720 window. CI runs these on
+`windows-2022`, and the release workflow adds
+`rufust-<version>-windows-x86_64.zip`. No release containing Windows support
+has been published yet; the next version bump publishes the first one.
+
 ## Architecture map
 
 The user-facing flow is:
@@ -117,6 +148,26 @@ Repository ownership is divided as follows:
   `.github/workflows/release.yml` builds and publishes all four installer
   formats.
 
+On Windows the flow is the same with a different executor:
+
+```text
+Slint UI (unprivileged user)
+  -> Windows disk discovery (zero-access IOCTLs)
+  -> the same plan and confirmation
+  -> one versioned request over private named pipes to
+       rufust.exe --elevated-worker, started through UAC per operation
+  -> structured progress, verification, flush, and exit
+```
+
+Windows ownership: `crates/rufust-platform/src/windows.rs` (discovery, volume
+table, capabilities); `crates/rufust-helper/src/windows/` (engine, pipe
+server, `FormatEx`, decoders, VHD attach, and the VHDX integration tests);
+`crates/rufust-helper/src/fat32.rs` (large FAT32); `engine.rs` (progress and
+Windows-media planning shared with udisks2); and in the app,
+`helper_client/windows.rs` (UAC launch and pipes), `desktop.rs` (file chooser
+and theme), plus Windows branches in `hotplug.rs`, `regional.rs`,
+`settings.rs`, and `image_inspection.rs`.
+
 Read [`ARCHITECTURE.md`](ARCHITECTURE.md) before moving responsibilities between
 modules or changing the operation state model.
 
@@ -145,6 +196,11 @@ implementation details:
 - Keep external tools on reviewed absolute paths with cleared environments.
   Keep permissive udev rules, setuid launchers, direct `sudo` fallbacks, and a
   root GUI outside the design.
+- On Windows, the window never runs as administrator and never opens a disk.
+  Only the UAC-elevated worker writes, after the same revalidation, and only
+  to a `\\.\PhysicalDriveN` whose interface path, number, size, sector size,
+  serial, and model still match. Every target volume stays locked and
+  dismounted during raw writes; the window's manifest stays `asInvoker`.
 
 ### AppImage trust boundary
 
@@ -258,6 +314,10 @@ included in 0.1.3.
 
 These are known follow-ups, not claims that the current release is broken:
 
+- Windows: smoke-test the zip on disposable physical USB media (flash drive
+  and USB SSD), boot-test Windows-built media, Authenticode-sign the
+  executable, and publish the first release that includes it. See
+  `WINDOWS.md`.
 - Run a packaged, real-polkit smoke test on disposable physical USB media for
   formatting, raw writing, Windows media, verification, cancellation, and
   disconnect during write. Automated tests, loop-backed udisks2 tests, and
@@ -268,6 +328,7 @@ These are known follow-ups, not claims that the current release is broken:
   does not rewrite `boot.wim`, so the hardware bypass always uses upstream's
   `RunSynchronous` fallback from the root `autounattend.xml`.
 - Desktop theme startup currently uses `RUFUST_THEME` or `GTK_THEME`.
+  On Windows it uses `RUFUST_THEME` or the app-mode setting.
   Portal-backed system theme detection and persistence of a manual
   system/light/dark preference remain unimplemented.
 - `rufust-i18n` contains catalog groundwork but the Slint application still has
@@ -312,6 +373,13 @@ cargo build --workspace --release --locked
 git diff --check
 ```
 
+On Windows, run the same `cargo fmt`, `cargo test`, `cargo clippy`, and
+`cargo build --release` gates, then the elevated end-to-end tests:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/windows/vhd-tests.ps1
+```
+
 Changes to desktop metadata or authorization also require:
 
 ```sh
@@ -321,7 +389,7 @@ xmllint --noout packaging/polkit/io.github.nitrodiesel.rufust.policy
 ```
 
 The release workflow must produce one Debian package, RPM, Arch package,
-AppImage, AppImage zsync file, and `SHA256SUMS`. The AppImage verifier must prove
+AppImage, AppImage zsync file, Windows zip, and `SHA256SUMS`. The AppImage verifier must prove
 its architecture, glibc 2.28 ceiling, dependency closure, lack of RPATH, update
 information, metadata, executable permissions, unprivileged contents, direct
 version launch, extraction fallback, Xvfb GUI startup, and loader compatibility

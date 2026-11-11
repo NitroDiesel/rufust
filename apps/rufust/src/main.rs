@@ -1,6 +1,11 @@
 //! Rufust desktop — presentation only; destructive I/O stays in the helper.
+//!
+//! On Windows the same program, started elevated with `--elevated-worker`,
+//! is that helper: it serves one request over the window's private pipes.
+#![cfg_attr(all(windows, not(debug_assertions)), windows_subsystem = "windows")]
 
 mod confirmation;
+mod desktop;
 mod helper_client;
 mod hotplug;
 mod image_inspection;
@@ -15,8 +20,6 @@ use std::rc::Rc;
 use std::sync::mpsc;
 use std::time::Duration;
 
-use ashpd::desktop::file_chooser::{FileFilter, SelectedFiles};
-use ashpd::desktop::ResponseError;
 use helper_client::{RunningHelper, WorkerMessage};
 use hotplug::BlockDeviceWatcher;
 use rufust_helper_protocol::{HelperEvent, HelperResult};
@@ -33,6 +36,13 @@ mod generated_ui {
 use generated_ui::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    #[cfg(windows)]
+    {
+        let arguments = std::env::args().collect::<Vec<_>>();
+        if arguments.len() == 3 && arguments[1] == helper_client::WORKER_FLAG {
+            std::process::exit(i32::from(rufust_helper::serve_pipe(&arguments[2])));
+        }
+    }
     if std::env::args_os().len() == 2
         && std::env::args_os()
             .nth(1)
@@ -125,11 +135,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .collect::<Vec<_>>(),
     )));
     ui.set_app_version(env!("CARGO_PKG_VERSION").into());
-    let desktop_theme = std::env::var("GTK_THEME").unwrap_or_default();
+    if cfg!(windows) {
+        ui.set_privilege_note(
+            "Destructive writes run in a separate worker that Windows elevates only after you approve it. The window itself never runs as administrator.".into(),
+        );
+    }
     ui.set_dark_mode(
         std::env::var("RUFUST_THEME")
             .map(|value| !value.eq_ignore_ascii_case("light"))
-            .unwrap_or_else(|_| desktop_theme.to_ascii_lowercase().contains("dark")),
+            .unwrap_or_else(|_| desktop::prefers_dark()),
     );
 
     refresh_filesystems(&ui, &state.borrow());
@@ -310,7 +324,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if state.borrow().is_busy || state.borrow().image_inspecting {
                     return;
                 }
-                match pick_image_file() {
+                match desktop::pick_image_file() {
                     Ok(Some(path)) => {
                         let mut st = state.borrow_mut();
                         let Some((generation, cancel)) = st.begin_image_inspection(path.clone())
@@ -865,52 +879,6 @@ fn show_confirm(ui: &AppWindow, st: &mut AppState) {
 fn string_model(items: &[&str]) -> ModelRc<SharedString> {
     let v: Vec<SharedString> = items.iter().map(|s| SharedString::from(*s)).collect();
     ModelRc::new(VecModel::from(v))
-}
-
-fn pick_image_file() -> Result<Option<std::path::PathBuf>, String> {
-    let images = FileFilter::new("Disk images")
-        .glob("*.iso")
-        .glob("*.img")
-        .glob("*.raw")
-        .glob("*.dmg")
-        .glob("*.vhd")
-        .glob("*.vhdx")
-        .glob("*.gz")
-        .glob("*.xz")
-        .glob("*.lzma")
-        .glob("*.bz2")
-        .glob("*.zst")
-        .glob("*.zstd")
-        .glob("*.zip")
-        .glob("*.wim")
-        .glob("*.esd")
-        .glob("*.ffu");
-
-    pollster::block_on(async {
-        let request = SelectedFiles::open_file()
-            .title("Select a disk image")
-            .accept_label("Select")
-            .modal(true)
-            .filter(images)
-            .filter(FileFilter::new("All files").glob("*"))
-            .send()
-            .await
-            .map_err(|error| format!("Could not open the system file chooser: {error}"))?;
-
-        let selected = match request.response() {
-            Ok(selected) => selected,
-            Err(ashpd::Error::Response(ResponseError::Cancelled)) => return Ok(None),
-            Err(error) => return Err(format!("System file chooser failed: {error}")),
-        };
-        selected
-            .uris()
-            .first()
-            .map(|uri| {
-                uri.to_file_path()
-                    .map_err(|_| "The selected image is not a local file.".to_owned())
-            })
-            .transpose()
-    })
 }
 
 fn refresh_filesystems(ui: &AppWindow, state: &AppState) {

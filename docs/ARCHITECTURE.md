@@ -4,11 +4,11 @@
 
 ### Desktop application
 
-The Slint application owns presentation, localization, device summaries, image analysis, option validation, operation planning, and progress rendering. It runs as the logged-in user and opens a native Wayland or X11 window through Slint's platform backend.
+The Slint application owns presentation, localization, device summaries, image analysis, option validation, operation planning, and progress rendering. It runs as the logged-in user, never elevated, and opens a native Wayland, X11, or Windows window through Slint's platform backend.
 
 ### Device service
 
-The 0.1 device service reads `/sys/class/block`, `/sys/dev/block`, mountinfo, swap state and sysfs holder relationships. It records device ancestry rather than comparing only Linux major numbers. A lightweight watcher detects block-topology changes and coalesces automatic refreshes; manual refresh remains available.
+On Linux, the device service reads `/sys/class/block`, `/sys/dev/block`, mountinfo, swap state and sysfs holder relationships. It records device ancestry rather than comparing only Linux major numbers. A lightweight watcher detects block-topology changes and coalesces automatic refreshes; manual refresh remains available.
 
 ### Image engine
 
@@ -33,8 +33,23 @@ The planner converts a device snapshot, image report, and user options into an i
 the user. The system udisks2 daemon partitions, formats, mounts, and opens raw
 descriptors under its own polkit policy; the engine streams images, copies ISO
 files (via `rufust_image::isofs`), writes boot code, and verifies. Windows media
-layout and boot records live in `rufust-helper/src/windows_media.rs`. This is
-the default path and the only one that builds Windows media.
+layout and boot records live in `rufust-helper/src/windows_media.rs`. On Linux
+this is the default path and the only one that builds Windows media.
+
+### Windows engine
+
+On Windows the device service is `rufust-platform/src/windows.rs` (disk
+interfaces, storage IOCTLs, and the volume table) and the engine is
+`rufust_helper::execute` in `rufust-helper/src/windows/`. The desktop never
+opens a disk: `helper_client/windows.rs` starts `rufust.exe --elevated-worker`
+through UAC, and `rufust_helper::serve_pipe` in that elevated process reads
+the same versioned request from a private named pipe and streams the same
+events back. The engine locks and dismounts the target's volumes, partitions
+with the disk IOCTLs, formats with Windows' `FormatEx` (or the built-in large
+FAT32 formatter in `fat32.rs`), decodes compressed images in process, attaches
+VHD/VHDX read-only, and reuses `windows_media.rs` for installer media. Progress
+reporting and Windows-media planning shared with the udisks2 engine live in
+`engine.rs`. See [Windows](WINDOWS.md).
 
 ### Privileged helper
 

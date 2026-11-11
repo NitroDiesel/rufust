@@ -1,6 +1,8 @@
-//! `rufust-helper` — root-only raw-device operations.
+//! `rufust-helper` — privileged raw-device operations.
 //!
-//! Invoked via polkit. Never run the desktop GUI as root.
+//! On Linux it is invoked via polkit; never run the desktop GUI as root. On
+//! Windows, the desktop starts an elevated worker itself; this program offers
+//! the same request validation, dry run, and `--execute-pipe` entry point.
 
 use std::env;
 use std::io::{self, BufRead, Read};
@@ -8,6 +10,7 @@ use std::process::ExitCode;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
+#[cfg(unix)]
 use std::time::Duration;
 
 use rufust_core::progress::CancellationToken;
@@ -19,8 +22,10 @@ use rufust_helper_protocol::{
     decode_line, HelperEvent, HelperRequest, HelperResult, MAX_MESSAGE_BYTES,
 };
 
+#[cfg(unix)]
 static TERMINATION_REQUESTED: AtomicBool = AtomicBool::new(false);
 
+#[cfg(unix)]
 extern "C" fn handle_termination_signal(_signal: libc::c_int) {
     TERMINATION_REQUESTED.store(true, Ordering::Release);
 }
@@ -39,6 +44,16 @@ impl Drop for SignalWatcher {
     }
 }
 
+/// Windows consoles have no SIGTERM; the desktop cancels through its pipe.
+#[cfg(windows)]
+fn watch_termination_signals(_cancel: CancellationToken) -> io::Result<SignalWatcher> {
+    Ok(SignalWatcher {
+        stop: Arc::new(AtomicBool::new(false)),
+        thread: None,
+    })
+}
+
+#[cfg(unix)]
 fn watch_termination_signals(cancel: CancellationToken) -> io::Result<SignalWatcher> {
     TERMINATION_REQUESTED.store(false, Ordering::Release);
     let mut action = unsafe { std::mem::zeroed::<libc::sigaction>() };
@@ -83,7 +98,12 @@ fn main() -> ExitCode {
         }
         Some("--dry-run") => {
             // Safe smoke path: validate + emit stages without raw I/O.
-            let target = args.next().unwrap_or_else(|| "/dev/null".into());
+            let default_target = if cfg!(windows) {
+                r"\\.\PhysicalDrive0"
+            } else {
+                "/dev/null"
+            };
+            let target = args.next().unwrap_or_else(|| default_target.into());
             let request = sample_dry_request(target.into());
             run_request(request, true)
         }
@@ -122,6 +142,14 @@ fn main() -> ExitCode {
                 }
             }
         }
+        #[cfg(windows)]
+        Some("--execute-pipe") => match args.next() {
+            Some(name) => ExitCode::from(rufust_helper::serve_pipe(&name)),
+            None => {
+                print_help();
+                ExitCode::from(2)
+            }
+        },
         Some("--execute-json") => {
             let input = match read_stdin_request() {
                 Ok(input) => input,
@@ -237,6 +265,7 @@ Usage:
   rufust-helper --validate-json [FILE]
   rufust-helper --execute-json   # NDJSON HelperRequest on stdin
   rufust-helper                  # same as --execute-json (polkit path)
+  rufust-helper --execute-pipe NAME  # Windows: serve the desktop's pipes (elevated)
 "
     );
 }

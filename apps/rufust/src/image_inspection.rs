@@ -1,7 +1,6 @@
 //! Read-only background inspection; write authorization remains in the helper.
 
 use std::fs::OpenOptions;
-use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 
 use rufust_core::plan::ImageSourceKind;
@@ -10,10 +9,34 @@ use rufust_image::{ImageError, ImageReport};
 
 pub fn inspect(path: &Path, cancel: &CancellationToken) -> Result<ImageReport, ImageError> {
     check_cancel(cancel)?;
-    let mut file = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC)
-        .open(path)?;
+    let mut options = OpenOptions::new();
+    options.read(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK | libc::O_CLOEXEC);
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt;
+        use windows_sys::Win32::Storage::FileSystem::{
+            FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
+        };
+        // Open a link itself rather than its target, then refuse it below;
+        // backup semantics lets a directory open so it is reported as such.
+        options.custom_flags(FILE_FLAG_OPEN_REPARSE_POINT | FILE_FLAG_BACKUP_SEMANTICS);
+    }
+    let mut file = options.open(path)?;
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        let attributes = file.metadata()?.file_attributes();
+        if attributes & windows_sys::Win32::Storage::FileSystem::FILE_ATTRIBUTE_REPARSE_POINT != 0 {
+            return Err(ImageError::Unsupported(
+                "links are not accepted; select the image file itself".into(),
+            ));
+        }
+    }
     let mut report = rufust_image::analyze_file(path, &mut file)?;
     check_cancel(cancel)?;
     if matches!(report.kind, ImageSourceKind::Vhd | ImageSourceKind::Vhdx) {
@@ -74,9 +97,12 @@ mod tests {
         let report = inspect(&source, &cancel).expect("raw preview");
         assert_eq!(report.kind, ImageSourceKind::Raw);
         assert_eq!(report.size_bytes, 4096);
-        let link = fixture.0.join("link.img");
-        std::os::unix::fs::symlink(&source, &link).expect("symlink fixture");
-        assert!(inspect(&link, &cancel).is_err());
+        #[cfg(unix)]
+        {
+            let link = fixture.0.join("link.img");
+            std::os::unix::fs::symlink(&source, &link).expect("symlink fixture");
+            assert!(inspect(&link, &cancel).is_err());
+        }
         assert!(matches!(
             inspect(&fixture.0, &cancel),
             Err(ImageError::NotAFile(_))
@@ -89,6 +115,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     #[ignore = "requires non-root user, qemu-img, qemu-nbd and nbdinfo"]
     fn desktop_virtual_preview_reports_capacity_without_changing_source() {
         assert_ne!(
@@ -118,5 +145,24 @@ mod tests {
                 .iter()
                 .any(|note| note.contains("conversion is not available")));
         }
+    }
+}
+
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use super::*;
+
+    /// Run unelevated (for example under `runas /trustlevel:0x20000`) with
+    /// `RUFUST_TEST_VHD_SOURCE` naming a VHD or VHDX.
+    #[test]
+    #[ignore = "needs RUFUST_TEST_VHD_SOURCE"]
+    fn virtual_disk_preview_reports_capacity() {
+        let Some(source) = std::env::var_os("RUFUST_TEST_VHD_SOURCE") else {
+            return;
+        };
+        let report = inspect(std::path::Path::new(&source), &CancellationToken::new())
+            .expect("virtual preview");
+        let expanded = report.decompressed_size_bytes.expect("inspected disk size");
+        assert!(expanded >= 16 * 1024 * 1024 && expanded % 512 == 0);
     }
 }
