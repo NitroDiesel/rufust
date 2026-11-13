@@ -1,7 +1,10 @@
 //! Preferences kept across launches as `key=value` lines in
 //! `$XDG_CONFIG_HOME/rufust/settings.conf` on Linux and
-//! `%APPDATA%Rufustsettings.conf` on Windows.
+//! `%APPDATA%\Rufust\settings.conf` on Windows, or a `settings.conf` that already
+//! sits beside `rufust.exe` (portable use).
 
+#[cfg(windows)]
+use std::path::Path;
 use std::path::PathBuf;
 
 use crate::units::{SizeUnit, SpeedUnit};
@@ -100,9 +103,24 @@ fn path_in(dir: &str) -> Option<PathBuf> {
     if dir == LEGACY_CONFIG_DIR {
         return None;
     }
-    let base = std::env::var_os("APPDATA")
-        .map(PathBuf::from)
-        .filter(|path| path.is_absolute())?;
+    windows_path(
+        std::env::current_exe().ok().as_deref(),
+        std::env::var_os("APPDATA").map(PathBuf::from),
+    )
+}
+
+/// A `settings.conf` beside the executable makes that copy portable: it is
+/// read and written there, so preferences travel with a USB stick. Without
+/// one, settings live under `%APPDATA%`.
+#[cfg(windows)]
+fn windows_path(exe: Option<&Path>, appdata: Option<PathBuf>) -> Option<PathBuf> {
+    let beside = exe
+        .and_then(Path::parent)
+        .map(|folder| folder.join("settings.conf"));
+    if let Some(beside) = beside.filter(|path| path.is_file()) {
+        return Some(beside);
+    }
+    let base = appdata.filter(|path| path.is_absolute())?;
     Some(base.join("Rufust").join("settings.conf"))
 }
 
@@ -140,5 +158,26 @@ mod tests {
             Settings::parse("wue_options=silent,regional,bogus\n").wue_options,
             [WueOption::Regional]
         );
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_settings_file_beside_the_executable_is_portable() {
+        let folder = std::env::temp_dir().join(format!("rufust-portable-{}", std::process::id()));
+        std::fs::create_dir_all(&folder).expect("folder");
+        let exe = folder.join("rufust.exe");
+        let appdata = PathBuf::from(r"C:\Users\someone\AppData\Roaming");
+        assert_eq!(
+            windows_path(Some(&exe), Some(appdata.clone())),
+            Some(appdata.join("Rufust").join("settings.conf"))
+        );
+        let beside = folder.join("settings.conf");
+        std::fs::write(&beside, "").expect("marker");
+        assert_eq!(
+            windows_path(Some(&exe), Some(appdata)),
+            Some(beside.clone())
+        );
+        assert_eq!(windows_path(Some(&exe), None), Some(beside));
+        std::fs::remove_dir_all(&folder).expect("cleanup");
     }
 }

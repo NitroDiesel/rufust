@@ -131,7 +131,9 @@ For Windows 10/11 (x64), pick one download and check it against `SHA256SUMS`:
 - **Installer:** `rufust-*-windows-x86_64-setup.exe` installs Rufust in
   Program Files with a Start menu entry and an uninstaller (Settings → Apps).
 - **Portable:** run `rufust-*-windows-x86_64.exe` directly from anywhere, such
-  as a USB stick. Nothing is installed.
+  as a USB stick. Nothing is installed. To keep your settings with it, put an
+  empty file named `settings.conf` beside the exe; otherwise they are saved
+  in your Windows profile.
 
 ```powershell
 Get-FileHash .\rufust-*-windows-x86_64* -Algorithm SHA256

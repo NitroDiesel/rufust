@@ -96,7 +96,8 @@ get-info access, which needs no elevation.
 
 - File chooser: the common Open dialog, owned by the workbench window.
 - Theme: `RUFUST_THEME`, else the "app mode" (`AppsUseLightTheme`) setting.
-- Settings: `%APPDATA%\Rufust\settings.conf`.
+- Settings: `%APPDATA%\Rufust\settings.conf`, or a `settings.conf` that
+  already sits beside `rufust.exe`, which makes that copy portable.
 - Regional options for the Windows User Experience dialog: the system and user
   locales, display language, keyboard layout, and time zone key name, read
   from Windows as upstream does.
