@@ -26,13 +26,13 @@ jobs:
   debian:
     name: Debian package
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: dtolnay/rust-toolchain@bc540ba06a4ccee415bb241490e0b25ee8e7d315
       - name: Install packaging dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          scripts/ci/apt-install.sh \
             debhelper devscripts fakeroot pkg-config \
             libfontconfig1-dev libfreetype-dev libxkbcommon-dev \
             libwayland-dev libx11-dev libxcb1-dev
@@ -72,6 +72,7 @@ jobs:
   fedora:
     name: Fedora package
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Build and validate Fedora installer
@@ -129,6 +130,7 @@ jobs:
   arch:
     name: Arch package
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Prepare source archive
@@ -197,12 +199,12 @@ jobs:
   appimage:
     name: Portable AppImage
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Install AppImage validation tools
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          scripts/ci/apt-install.sh \
             appstream binutils desktop-file-utils file libxkbcommon-x11-0 \
             libxml2-utils xvfb zsync
       - name: Build against glibc 2.28
@@ -298,6 +300,7 @@ jobs:
   windows:
     name: Windows installer and portable executable
     runs-on: windows-2022
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: dtolnay/rust-toolchain@bc540ba06a4ccee415bb241490e0b25ee8e7d315
@@ -379,6 +382,7 @@ jobs:
       startsWith(github.ref, 'refs/heads/release/v')
     needs: [debian, fedora, arch, appimage, windows]
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
     permissions:
       contents: write
       id-token: write

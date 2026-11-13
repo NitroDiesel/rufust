@@ -398,6 +398,12 @@ information, metadata, executable permissions, unprivileged contents, direct
 version launch, extraction fallback, Xvfb GUI startup, and loader compatibility
 on Debian, Fedora, and Arch.
 
+Every copy of the version is checked against `Cargo.toml` by
+`scripts/version.sh check` in CI. `scripts/version.sh bump X.Y.Z` rewrites the
+plain version strings; the changelog entries (Debian, RPM, AppStream, the
+"Changes in" section of `CAPABILITIES.md`, this baseline, and the release
+notes) are written by hand, and the check names any that are missing.
+
 Release publication supports a `v*` tag or a matching `release/v<PACKAGE_VERSION>`
 branch. The release branch path exists so an authenticated repository agent can
 publish through the reviewed workflow without locally stored GitHub credentials.

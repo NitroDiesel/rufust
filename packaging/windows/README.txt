@@ -28,7 +28,9 @@ Rufust can:
   - format drives as FAT, FAT32 (any size), exFAT, NTFS, or UDF, with an
     optional bad-block test.
 
-Settings are kept in %APPDATA%\Rufust\settings.conf.
+Settings are kept in %APPDATA%\Rufust\settings.conf. To keep them with a
+portable copy instead, put an empty file named settings.conf next to
+rufust.exe before starting it.
 
 The executable is not code-signed yet, so Windows SmartScreen may ask you to
 confirm the first launch. Verify the download against SHA256SUMS from the

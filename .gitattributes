@@ -1,0 +1,4 @@
+# Keep GitHub's language statistics to the project's own code. These folders
+# hold upstream Rufus's unchanged sources and a one-off test-fixture generator.
+crates/rufust-helper/assets/** linguist-vendored
+scripts/fixtures/** linguist-vendored
