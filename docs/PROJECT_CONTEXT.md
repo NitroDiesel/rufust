@@ -109,7 +109,7 @@ capacity preview pass under a non-administrator token; and the release build
 renders the workbench in the fixed 560x720 window. CI runs these on
 `windows-2022`, and the release workflow adds
 `rufust-<version>-windows-x86_64-setup.exe` (Inno Setup, verified by a silent
-install and uninstall) and the portable `rufust-<version>-windows-x86_64.zip`.
+install and uninstall) and the portable `rufust-<version>-windows-x86_64.exe`.
 The v1.2.0 release is the first to include them.
 
 ## Architecture map
@@ -390,7 +390,8 @@ xmllint --noout packaging/polkit/io.github.nitrodiesel.rufust.policy
 ```
 
 The release workflow must produce one Debian package, RPM, Arch package,
-AppImage, AppImage zsync file, Windows zip, and `SHA256SUMS`. The AppImage verifier must prove
+AppImage, AppImage zsync file, Windows installer, Windows portable executable,
+and `SHA256SUMS`. The AppImage verifier must prove
 its architecture, glibc 2.28 ceiling, dependency closure, lack of RPATH, update
 information, metadata, executable permissions, unprivileged contents, direct
 version launch, extraction fallback, Xvfb GUI startup, and loader compatibility

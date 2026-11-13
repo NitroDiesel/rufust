@@ -89,7 +89,7 @@ The `packaging/` directory contains integration metadata and starter recipes:
 - `tmpfiles/` — volatile root-owned runtime directory;
 - `debian/`, `rpm/`, `arch/` — distribution recipes;
 - `appimage/` — AppImage staging, verification, launcher, and security notes;
-- `windows/` — the README shipped in the Windows zip.
+- `windows/` — the Inno Setup installer script and the README it installs.
 
 Recipes intentionally do not download proprietary boot or Windows assets. Release builders must be reproducible, use Cargo's locked dependencies, generate a software bill of materials, and preserve license texts.
 
@@ -158,11 +158,11 @@ From an elevated PowerShell, `scripts\windows\vhd-tests.ps1` runs the
 end-to-end tests on throwaway VHDX disks (see [Windows](WINDOWS.md)). CI runs
 the same steps on `windows-2022`.
 
-The release workflow's Windows job packages
-`rufust-<version>-windows-x86_64.zip` with `rufust.exe`,
-`packaging/windows/README.txt`, `LICENSE.txt`, and `THIRD_PARTY.md`. It checks
-the reported version, the x86-64 PE machine, and the embedded `asInvoker`
-manifest before the zip joins `SHA256SUMS` and the build provenance. Do not
+The release workflow's Windows job publishes the bare executable as the
+portable `rufust-<version>-windows-x86_64.exe`, as upstream Rufus does. It
+checks the reported version, the x86-64 PE machine, and the embedded
+`asInvoker` manifest before the executable joins `SHA256SUMS` and the build
+provenance. Do not
 ship a manifest that requests elevation: the window must stay unprivileged.
 
 The same job compiles `packaging/windows/rufust.iss` with Inno Setup 6 into
