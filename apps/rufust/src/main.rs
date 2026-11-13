@@ -926,19 +926,12 @@ fn apply_state_to_ui(ui: &AppWindow, state: &AppState) {
         ui.set_device_name(dev.display_name.clone().into());
         ui.set_device_path(dev.node.display().to_string().into());
         ui.set_device_capacity(rufust_image::format_size(dev.fingerprint.size_bytes).into());
-        ui.set_device_risky(
-            !dev.risks.is_empty()
-                || matches!(
-                    dev.class,
-                    rufust_core::device::DeviceClass::Internal
-                        | rufust_core::device::DeviceClass::ExternalFixed
-                ),
-        );
+        ui.set_device_warning(state::device_warning(dev).unwrap_or_default().into());
     } else {
         ui.set_device_name("No device selected".into());
         ui.set_device_path("—".into());
         ui.set_device_capacity("—".into());
-        ui.set_device_risky(false);
+        ui.set_device_warning("".into());
     }
 
     ui.set_boot_selection(state.boot_selection.label().into());

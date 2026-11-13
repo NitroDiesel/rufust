@@ -1,3 +1,9 @@
+rufust (1.2.1-1) unstable; urgency=medium
+
+  * Warn only about unusual targets; a mounted flash drive is no longer flagged.
+
+ -- Rufust contributors <rufust@users.noreply.github.com>  Fri, 13 Nov 2026 00:00:00 +0800
+
 rufust (1.2.0-1) unstable; urgency=medium
 
   * Add Windows 10 and 11 support with an installer and a portable build.
