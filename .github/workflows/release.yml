@@ -20,7 +20,7 @@ permissions:
 
 env:
   CARGO_TERM_COLOR: always
-  PACKAGE_VERSION: 1.2.0
+  PACKAGE_VERSION: 1.2.1
 
 jobs:
   debian:
@@ -414,7 +414,12 @@ jobs:
           capability set. It is an independent port and is not produced,
           endorsed, or supported by the upstream Rufus project.
 
-          New in 1.2.0: Rufust runs on Windows 10 and 11 (x64), with an
+          New in 1.2.1: an ordinary USB flash drive is no longer flagged as
+          unusual. The device warning appears only for unusual targets, such
+          as an internal disk, an external hard disk or SSD, or a read-only
+          drive, and names the reason.
+
+          Since 1.2.0: Rufust runs on Windows 10 and 11 (x64), with an
           installer and a portable download. The window stays unprivileged;
           each operation runs in an elevated worker after one UAC approval.
           On Windows, ext2/3/4 and ReFS creation are not offered. The Windows

@@ -30,7 +30,8 @@ export component AppWindow inherits Window {
     in-out property <string> device-name: "No device selected";
     in-out property <string> device-path: "—";
     in-out property <string> device-capacity: "—";
-    in-out property <bool> device-risky: false;
+    // Why the selected target is unusual; empty for an ordinary flash drive.
+    in-out property <string> device-warning: "";
 
     in-out property <[string]> boot-choices;
     in-out property <string> boot-selection: "Disk or ISO image";
@@ -93,7 +94,7 @@ export component AppWindow inherits Window {
     in-out property <bool> show-about: false;
     in-out property <bool> show-advanced: false;
     in-out property <string> capability-hint: "";
-    in-out property <string> app-version: "1.2.0";
+    in-out property <string> app-version: "1.2.1";
     in property <string> privilege-note: "Destructive writes use a polkit-authorized helper. The desktop process never holds ambient root for raw disks.";
 
     // —— Callbacks ——
@@ -174,8 +175,8 @@ export component AppWindow inherits Window {
                                 }
                             }
                         }
-                        if root.device-risky: Callout {
-                            message: root.device-name + " is not ordinary removable media. Check the target before writing.";
+                        if root.device-warning != "": Callout {
+                            message: root.device-warning;
                             tone: "warning";
                         }
                         VerticalLayout {

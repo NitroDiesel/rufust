@@ -3319,7 +3319,7 @@ checksum = "6c20b6793b5c2fa6553b250154b78d6d0db37e72700ae35fad9387a46f487c97"
 
 [[package]]
 name = "rufust"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "ashpd",
  "embed-resource",
@@ -3338,7 +3338,7 @@ dependencies = [
 
 [[package]]
 name = "rufust-boot"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "rufust-core",
  "thiserror 2.0.19",
@@ -3346,14 +3346,14 @@ dependencies = [
 
 [[package]]
 name = "rufust-core"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "serde",
 ]
 
 [[package]]
 name = "rufust-downloads"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -3363,7 +3363,7 @@ dependencies = [
 
 [[package]]
 name = "rufust-helper"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "bzip2",
  "flate2",
@@ -3383,7 +3383,7 @@ dependencies = [
 
 [[package]]
 name = "rufust-helper-protocol"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "rufust-core",
  "serde",
@@ -3393,11 +3393,11 @@ dependencies = [
 
 [[package]]
 name = "rufust-i18n"
-version = "1.2.0"
+version = "1.2.1"
 
 [[package]]
 name = "rufust-image"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "libc",
  "md-5",
@@ -3409,7 +3409,7 @@ dependencies = [
 
 [[package]]
 name = "rufust-platform"
-version = "1.2.0"
+version = "1.2.1"
 dependencies = [
  "rufust-core",
  "windows-sys 0.59.0",

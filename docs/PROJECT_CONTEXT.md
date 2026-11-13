@@ -18,11 +18,12 @@ Debian/Ubuntu, Fedora, and Windows 10/11 (x64). Feature parity means
 implementing an upstream concept safely on each platform; it does not mean exposing a control before its full operation
 is implemented and verified.
 
-## Current baseline: 1.2.0
+## Current baseline: 1.2.1
 
-Version 1.2.0 is the continuation baseline. Its public installers belong in the
-[v1.2.0 release](https://github.com/NitroDiesel/rufust/releases/tag/v1.2.0).
-1.2.0 is the first release with Windows support (below). The project was
+Version 1.2.1 is the continuation baseline. Its public installers belong in the
+[v1.2.1 release](https://github.com/NitroDiesel/rufust/releases/tag/v1.2.1).
+1.2.0 is the first release with Windows support (below); 1.2.1 limits the
+device warning to unusual targets and names the reason. The project was
 named Rufus Linux (`rufus-linux`) up to 1.0.1; 1.1.0 renamed it to Rufust
 everywhere. Its packages replace `rufus-linux`, and the desktop app
 still reads preferences from `~/.config/rufus-linux` until it saves its own.

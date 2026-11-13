@@ -70,6 +70,15 @@ Blocked only on Windows: ext2/3/4 creation (no Windows formatter) and ReFS
 creation (only Pro for Workstations, Enterprise, and Server editions allow it,
 through VDS).
 
+## Changes in 1.2.1
+
+The warning under the device picker appears only for unusual targets and
+names the reason: an internal disk, an external hard disk or SSD, or a drive
+Rufust refuses (system, boot, swap or page file, RAID/LVM/multi-disk member,
+read-only, or no usable identity). Mounted volumes no longer trigger it, so an
+ordinary USB flash drive with a drive letter or desktop automount shows no
+warning; the engine still unmounts or dismounts them before writing.
+
 ## Changes in 1.2.0
 
 Rufust now runs on Windows 10 and 11 (x64), alongside the Linux build, with

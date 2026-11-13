@@ -26,6 +26,13 @@
   </replaces>
   <content_rating type="oars-1.1"/>
   <releases>
+    <release version="1.2.1" date="2026-11-13">
+      <description>
+        <p>An ordinary USB flash drive is no longer flagged as unusual. The
+        device warning now names the actual reason, such as an external hard
+        disk or a read-only drive.</p>
+      </description>
+    </release>
     <release version="1.2.0" date="2026-11-11">
       <description>
         <p>Rufust now also runs on Windows 10 and 11, with an installer and a

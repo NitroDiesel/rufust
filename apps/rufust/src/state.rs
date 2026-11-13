@@ -1100,6 +1100,39 @@ fn stage_label(stage: ProgressStage) -> &'static str {
     }
 }
 
+/// The warning shown under the device picker, naming why the selected target
+/// is unusual, or `None` for an ordinary flash drive or card. Mounted volumes
+/// are ordinary: the engine unmounts or dismounts them before writing.
+pub fn device_warning(device: &BlockDevice) -> Option<String> {
+    use rufust_core::device::DeviceRisk;
+
+    let name = &device.display_name;
+    let has = |risk| device.risks.contains(&risk);
+    let reason = if has(DeviceRisk::ContainsRoot) {
+        "holds the running system. Rufust will not write to it."
+    } else if has(DeviceRisk::ContainsBoot) {
+        "holds this computer's boot partition. Rufust will not write to it."
+    } else if has(DeviceRisk::ContainsSwap) {
+        "holds active swap or a page file. Rufust will not write to it."
+    } else if has(DeviceRisk::ActiveRaidMember)
+        || has(DeviceRisk::ActiveVolumeMember)
+        || has(DeviceRisk::HasDependents)
+    {
+        "is part of a RAID, LVM, or multi-disk volume. Rufust will not write to it."
+    } else if has(DeviceRisk::ReadOnly) {
+        "is read-only. Rufust cannot write to it."
+    } else if has(DeviceRisk::IdentityUnstable) {
+        "did not report a usable size or identity. Rufust will not write to it."
+    } else if has(DeviceRisk::Internal) || device.class == DeviceClass::Internal {
+        "is an internal disk. Check that it is the drive you mean to erase."
+    } else if device.class == DeviceClass::ExternalFixed {
+        "is an external hard disk or SSD, not a flash drive. Check that it is the drive you mean to erase."
+    } else {
+        return None;
+    };
+    Some(format!("{name} {reason}"))
+}
+
 pub trait DeviceListLabel {
     fn list_label(&self) -> String;
 }
@@ -1149,6 +1182,43 @@ mod tests {
             },
             risks: vec![],
         }
+    }
+
+    #[test]
+    fn a_mounted_flash_drive_is_not_flagged() {
+        let mut stick = sample_device();
+        assert_eq!(device_warning(&stick), None);
+        stick.risks = vec![DeviceRisk::MountedChildren];
+        assert_eq!(device_warning(&stick), None);
+    }
+
+    #[test]
+    fn unusual_targets_name_their_reason() {
+        let mut ssd = sample_device();
+        ssd.class = DeviceClass::ExternalFixed;
+        ssd.risks = vec![DeviceRisk::MountedChildren];
+        let warning = device_warning(&ssd).expect("external disk warning");
+        assert!(warning.starts_with("Test Stick is an external hard disk or SSD"));
+
+        let mut internal = sample_device();
+        internal.class = DeviceClass::Internal;
+        internal.risks = vec![DeviceRisk::Internal];
+        assert!(device_warning(&internal)
+            .expect("internal warning")
+            .contains("internal disk"));
+
+        let mut system = sample_device();
+        system.class = DeviceClass::Internal;
+        system.risks = vec![DeviceRisk::Internal, DeviceRisk::ContainsRoot];
+        assert!(device_warning(&system)
+            .expect("system warning")
+            .contains("running system"));
+
+        let mut locked = sample_device();
+        locked.risks = vec![DeviceRisk::ReadOnly];
+        assert!(device_warning(&locked)
+            .expect("read-only warning")
+            .contains("read-only"));
     }
 
     #[test]

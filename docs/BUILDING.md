@@ -131,7 +131,7 @@ workflow, then stage and verify it with:
 ```sh
 packaging/appimage/stage-appdir.sh target/release/rufust Rufust.AppDir
 appimagetool --runtime-file runtime-x86_64 Rufust.AppDir rufust.AppImage
-packaging/appimage/verify-appimage.sh rufust.AppImage 1.2.0 2.28
+packaging/appimage/verify-appimage.sh rufust.AppImage 1.2.1 2.28
 ```
 
 The release workflow supplies SHA-verified appimagetool and type-2 runtime
@@ -172,7 +172,7 @@ again. To build the installer yourself after the release build:
 
 ```powershell
 $icon = (Get-ChildItem target\release\build\rufust-*\out\rufust.ico)[0].FullName
-& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersion=1.2.0 "/DIconFile=$icon" packaging\windows\rufust.iss
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DVersion=1.2.1 "/DIconFile=$icon" packaging\windows\rufust.iss
 ```
 
 The installer lands in `dist\`.
