@@ -440,22 +440,7 @@ pub fn revalidate_target(expected: &TargetIdentity) -> Result<DeviceIdentity, He
 
     let mounts = mount_records()?;
     let block = observed.to_block_device(&mounts);
-    for risk in [
-        rufust_core::device::DeviceRisk::ContainsRoot,
-        rufust_core::device::DeviceRisk::ContainsBoot,
-        rufust_core::device::DeviceRisk::ContainsSwap,
-        rufust_core::device::DeviceRisk::ActiveRaidMember,
-        rufust_core::device::DeviceRisk::ActiveVolumeMember,
-        rufust_core::device::DeviceRisk::ReadOnly,
-        rufust_core::device::DeviceRisk::HasDependents,
-        rufust_core::device::DeviceRisk::IdentityUnstable,
-    ] {
-        if block.has_risk(risk) {
-            return Err(HelperError::Revalidation(format!(
-                "target has blocking risk: {risk:?}"
-            )));
-        }
-    }
+    engine::refuse_blocking_risks(&block)?;
     if sysfs_has_holders(&observed)? {
         return Err(HelperError::Revalidation(
             "target or a partition has active device-mapper/RAID holders".into(),

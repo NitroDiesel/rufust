@@ -22,16 +22,14 @@ use std::path::{Path, PathBuf};
 use std::ptr;
 use std::time::{Duration, Instant};
 
-use rufust_core::device::DeviceRisk;
 use rufust_core::plan::{
-    BootMode, FileSystem, ImageSourceKind, PartitionScheme, VerificationLevel, WriteMode,
+    FileSystem, ImageSourceKind, PartitionScheme, VerificationLevel, WriteMode,
 };
 use rufust_core::progress::{CancellationToken, ProgressStage};
 use rufust_helper_protocol::{
     FormatSpec, HelperEvent, HelperOperation, HelperRequest, HelperResult, SourceSpec,
     TargetIdentity, WindowsCustomization,
 };
-use rufust_image::isofs;
 use rufust_platform::windows::{self as platform, wide, Volume};
 use rufust_platform::{discover_devices, DeviceIdentity};
 use sha2::{Digest, Sha256};
@@ -42,7 +40,10 @@ use windows_sys::Win32::Security::{
 use windows_sys::Win32::Storage::FileSystem::SetVolumeLabelW;
 use windows_sys::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
-use crate::engine::{customization_plan, Meter, Reporter, MIB};
+use crate::engine::{
+    self, boot_record_start, copy_windows_files, plan_windows_media, refuse_blocking_risks,
+    verify_windows_files, Meter, RawDisk, Reporter, BAD_BLOCK_CHUNK, MIB, VERIFY_CHUNK,
+};
 use crate::windows_media::{self as winmedia, Span};
 use crate::{check_cancel, emit, fat32, hex_lower, EventSink, ExecutionOptions, HelperError};
 use disk::{AlignedBuffer, Disk, PartitionSpec, VolumeLock, GPT_BASIC_DATA};
@@ -183,22 +184,7 @@ pub fn revalidate_target(expected: &TargetIdentity) -> Result<DeviceIdentity, He
         return Err(HelperError::Revalidation(reason.into()));
     }
     let block = platform::to_block_device(&observed, &platform::volumes());
-    for risk in [
-        DeviceRisk::ContainsRoot,
-        DeviceRisk::ContainsBoot,
-        DeviceRisk::ContainsSwap,
-        DeviceRisk::ActiveRaidMember,
-        DeviceRisk::ActiveVolumeMember,
-        DeviceRisk::ReadOnly,
-        DeviceRisk::HasDependents,
-        DeviceRisk::IdentityUnstable,
-    ] {
-        if block.has_risk(risk) {
-            return Err(HelperError::Revalidation(format!(
-                "target has blocking risk: {risk:?}"
-            )));
-        }
-    }
+    refuse_blocking_risks(&block)?;
     Ok(observed)
 }
 
@@ -583,28 +569,17 @@ fn verify_disk(
     cancel: &CancellationToken,
     report: &mut Reporter<'_>,
 ) -> Result<(), HelperError> {
-    let chunk = 4 * MIB;
-    let sector = u64::from(disk.sector);
-    let mut buffer = AlignedBuffer::new(chunk as usize);
-    let mut hasher = Sha256::new();
+    let mut buffer = AlignedBuffer::new(VERIFY_CHUNK);
     let mut meter = Meter::new(size);
-    let mut offset = 0u64;
-    while offset < size {
-        check_cancel(cancel)?;
-        let wanted = (size - offset).min(chunk);
-        let read = wanted.div_ceil(sector) * sector;
-        disk.read_at(offset, &mut buffer.as_mut_slice()[..read as usize])?;
-        hasher.update(&buffer.as_slice()[..wanted as usize]);
-        offset += wanted;
-        report.bytes(ProgressStage::Verifying, &mut meter, offset, "Verifying");
-    }
-    let actual: [u8; 32] = hasher.finalize().into();
-    if actual != *expected {
-        return Err(HelperError::Operation(
-            "verification hash did not match the written image".into(),
-        ));
-    }
-    Ok(())
+    engine::verify_hash(
+        size,
+        expected,
+        buffer.as_mut_slice(),
+        u64::from(disk.sector),
+        &mut |offset, bytes| disk.read_at(offset, bytes),
+        cancel,
+        &mut |done| report.bytes(ProgressStage::Verifying, &mut meter, done, "Verifying"),
+    )
 }
 
 /// `badblocks -w`: write each pattern over the device, then read it back.
@@ -613,54 +588,20 @@ fn test_bad_blocks(
     cancel: &CancellationToken,
     report: &mut Reporter<'_>,
 ) -> Result<(), HelperError> {
-    const PATTERNS: [u8; 4] = [0xaa, 0x55, 0xff, 0x00];
-    let chunk = 4 * MIB;
-    let size = disk.size;
-    report.stage(ProgressStage::TestingMedia, "Checking for bad blocks");
-    let mut meter = Meter::new(size * 2 * PATTERNS.len() as u64);
-    let mut done = 0u64;
-    let mut written = AlignedBuffer::new(chunk as usize);
-    let mut read = AlignedBuffer::new(chunk as usize);
-    let mut bad = 0u64;
-    for pattern in PATTERNS {
-        written.as_mut_slice().fill(pattern);
-        let label = format!("Bad-block test: writing 0x{pattern:02x}");
-        let mut offset = 0;
-        while offset < size {
-            check_cancel(cancel)?;
-            let length = chunk.min(size - offset) as usize;
-            disk.write_at(offset, &written.as_slice()[..length])?;
-            offset += length as u64;
-            done += length as u64;
-            report.bytes(ProgressStage::TestingMedia, &mut meter, done, &label);
-        }
-        disk.flush()?;
-        let label = format!("Bad-block test: reading 0x{pattern:02x}");
-        let mut offset = 0;
-        while offset < size {
-            check_cancel(cancel)?;
-            let length = chunk.min(size - offset) as usize;
-            match disk.read_at(offset, &mut read.as_mut_slice()[..length]) {
-                Ok(()) => {
-                    bad += read.as_slice()[..length]
-                        .chunks(512)
-                        .filter(|sector| sector.iter().any(|byte| *byte != pattern))
-                        .count() as u64
-                }
-                Err(_) => bad += length as u64 / 512,
-            }
-            offset += length as u64;
-            done += length as u64;
-            report.bytes(ProgressStage::TestingMedia, &mut meter, done, &label);
-        }
-    }
-    if bad > 0 {
-        return Err(HelperError::Operation(format!(
-            "bad-block test found {bad} unreliable sectors; this device should not be used"
-        )));
-    }
-    report.log("Bad-block test passed.");
-    Ok(())
+    let mut written = AlignedBuffer::new(BAD_BLOCK_CHUNK);
+    let mut read = AlignedBuffer::new(BAD_BLOCK_CHUNK);
+    engine::test_bad_blocks(
+        disk.size,
+        written.as_mut_slice(),
+        read.as_mut_slice(),
+        RawDisk {
+            write_at: &mut |offset, bytes| disk.write_at(offset, bytes),
+            read_at: &mut |offset, buffer| disk.read_at(offset, buffer),
+            flush: &mut || disk.flush(),
+        },
+        cancel,
+        report,
+    )
 }
 
 /// The single data partition of a plain formatted drive.
@@ -885,52 +826,15 @@ fn write_windows_media(
     } = options;
     let cancel = target.cancel;
     // Everything that can be checked is checked before the first write.
-    let needs = winmedia::requirements(format.filesystem, format.scheme, format.boot_mode)?;
-    let mut iso = source.try_clone()?;
-    let listing = isofs::list(&mut iso)?
-        .ok_or_else(|| HelperError::Operation("the ISO file system could not be read".into()))?;
-    let has = |path: &str| listing.has_file(path);
-    if !(has("sources/install.wim") || has("sources/install.esd") || has("sources/install.swm")) {
-        return Err(HelperError::Operation(
-            "this ISO is not Windows installation media".into(),
-        ));
-    }
-    if needs.bios_boot && !has("bootmgr") {
-        return Err(HelperError::Operation(
-            "this image has no BIOS boot manager; choose UEFI".into(),
-        ));
-    }
-    if format.boot_mode != BootMode::Bios
-        && ![
-            "efi/boot/bootx64.efi",
-            "efi/boot/bootia32.efi",
-            "efi/boot/bootaa64.efi",
-        ]
-        .iter()
-        .any(|path| has(path))
-    {
-        return Err(HelperError::Operation(
-            "this image has no UEFI boot loader; choose BIOS".into(),
-        ));
-    }
-    let layout = winmedia::plan_layout(
+    let mut plan = plan_windows_media(
+        source,
+        format,
+        customization,
         target.identity.size_bytes,
         target.sector(),
-        format.scheme,
-        needs.uefi_ntfs,
+        report,
     )?;
-    winmedia::check_fits(&listing, format.filesystem, layout.data.size)?;
-    let customization = match customization {
-        Some(options) => Some((customization_plan(&mut iso, &listing, options)?, options)),
-        None => None,
-    };
-    report.log(format!(
-        "Windows media: {} files, {} MiB, {}{}",
-        listing.entries.iter().filter(|entry| !entry.is_dir).count(),
-        listing.total_file_bytes() / MIB,
-        format.filesystem.as_str(),
-        if needs.uefi_ntfs { " + UEFI:NTFS" } else { "" }
-    ));
+    let (needs, layout) = (plan.needs, plan.layout);
 
     let (locks, disk) = target.open(report)?;
     if bad_blocks {
@@ -992,36 +896,7 @@ fn write_windows_media(
 
     report.stage(ProgressStage::ExtractingFiles, "Copying Windows files");
     let root = volume_root(&data, cancel)?;
-    let total = listing.total_file_bytes();
-    let mut meter = Meter::new(total);
-    let mut copies = {
-        let mut on_progress = |done: u64, path: &str| {
-            report.bytes(
-                ProgressStage::ExtractingFiles,
-                &mut meter,
-                done,
-                &format!("Copying {path}"),
-            )
-        };
-        winmedia::copy_listing(&mut iso, &listing, &root, cancel, &mut on_progress)?
-    };
-    if let Some(((answer, build), options)) = &customization {
-        report.stage(
-            ProgressStage::ApplyingCustomization,
-            "Applying Windows customization",
-        );
-        for line in &answer.log {
-            report.log(line.clone());
-        }
-        winmedia::apply_customization(
-            &root,
-            answer,
-            options.bypass_requirements,
-            *build,
-            &mut copies,
-            &mut |line| report.log(line),
-        )?;
-    }
+    let copies = copy_windows_files(&mut plan, &root, cancel, report)?;
     report.stage(ProgressStage::Syncing, "Flushing the copied files");
     disk::flush_volume(&data)?;
     check_cancel(cancel)?;
@@ -1043,16 +918,7 @@ fn write_windows_media(
         // A dismount drops the cache, so the files are read from the device.
         disk::cycle_volume(&data)?;
         let root = volume_root(&data, cancel)?;
-        let mut meter = Meter::new(winmedia::copied_bytes(&copies));
-        let mut on_progress = |done: u64| {
-            report.bytes(
-                ProgressStage::Verifying,
-                &mut meter,
-                done,
-                "Verifying copied files",
-            )
-        };
-        winmedia::verify_copies(&copies, &root, &root, cancel, &mut on_progress)?;
+        verify_windows_files(&copies, &root, &root, cancel, report)?;
     }
     disk::show_volume(&data, letter);
     Ok(())
@@ -1071,8 +937,7 @@ fn install_bios_boot_code(
     disk.write_at(0, first.as_slice())?;
     disk.flush()?;
 
-    let start = u32::try_from(data_offset / sector)
-        .map_err(|_| HelperError::Operation("partition start is beyond MBR reach".into()))?;
+    let start = boot_record_start(data_offset, sector)?;
     let length = (winmedia::BOOT_AREA_BYTES as u64).div_ceil(sector) * sector;
     let lock = VolumeLock::acquire_mounted(data)?;
     let mut area = AlignedBuffer::new(length as usize);
