@@ -134,8 +134,12 @@ cancellation. CI runs them on every push.
 `scripts\windows\usb-tests.ps1 -DiskNumber N -Serial S` runs the same tests on
 one disposable USB flash drive and erases it. The script and the tests refuse
 any physical disk that is not a removable USB drive with exactly that serial
-(`RUFUST_TEST_USB_SERIAL`). It has not been run on physical media yet; the
-smoke-test gate below stays open until it has.
+(`RUFUST_TEST_USB_SERIAL`). It passed on 2026-11-14 on a 16 GB Kingston
+DataTraveler 101 G2 (USB 2.0 flash drive) under Windows 11: every file system
+provider, raw, gzip, and VHDX image writes with read-back, Windows installer
+media in all three layouts, and a format and a cancelled bad-block test
+through the worker pipes. The drive is under 32 GB, so large FAT32 did not
+run on it.
 
 ## Packaging
 
@@ -160,9 +164,10 @@ Authenticode-signed yet, so SmartScreen may warn on first launch.
 
 ## Open gates
 
-- A smoke test on disposable physical USB media (flash drive and USB SSD):
-  format, image write, Windows media, verification, cancellation, and
-  unplugging during a write. Virtual disks do not replace it.
+- The rest of the physical-media smoke test: a USB SSD or hard disk, a drive
+  over 32 GB (large FAT32), a full bad-block pass, and unplugging during a
+  write. The flash-drive run above covers format, image write, Windows media,
+  verification, and cancellation.
 - Boot tests of Windows-built media in QEMU/OVMF and on hardware.
 - Authenticode signing of release executables and the installer.
 - ext2/3/4 and ReFS creation, drive capture, and the other features blocked
