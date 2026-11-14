@@ -131,6 +131,12 @@ UEFI:NTFS, GPT UEFI, FAT32) from a synthetic ISO, run large FAT32 on a sparse
 40 GiB disk, and drive the window's pipe launcher through a format and a
 cancellation. CI runs them on every push.
 
+`scripts\windows\usb-tests.ps1 -DiskNumber N -Serial S` runs the same tests on
+one disposable USB flash drive and erases it. The script and the tests refuse
+any physical disk that is not a removable USB drive with exactly that serial
+(`RUFUST_TEST_USB_SERIAL`). It has not been run on physical media yet; the
+smoke-test gate below stays open until it has.
+
 ## Packaging
 
 The release workflow builds two downloads:
