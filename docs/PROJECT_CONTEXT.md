@@ -317,9 +317,10 @@ included in 0.1.3.
 
 These are known follow-ups, not claims that the current release is broken:
 
-- Windows: smoke-test on disposable physical USB media (flash drive and USB
-  SSD), boot-test Windows-built media, and Authenticode-sign the executable
-  and installer. See `WINDOWS.md`.
+- Windows: the engine tests passed on a physical USB flash drive
+  (`scripts/windows/usb-tests.ps1`). Still open: a USB SSD and a drive over
+  32 GB, unplugging during a write, boot-testing Windows-built media, and
+  Authenticode-signing the executable and installer. See `WINDOWS.md`.
 - Run a packaged, real-polkit smoke test on disposable physical USB media for
   formatting, raw writing, Windows media, verification, cancellation, and
   disconnect during write. Automated tests, loop-backed udisks2 tests, and

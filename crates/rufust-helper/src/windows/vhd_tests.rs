@@ -38,11 +38,26 @@ fn target(variable: &str) -> Option<DeviceIdentity> {
         .into_iter()
         .find(|device| device.minor == number)
         .expect("the disk is attached");
-    assert_eq!(
-        identity.transport, "loop",
-        "refusing disk {number}: it is not a file-backed virtual disk"
+    assert!(
+        disposable(&identity),
+        "refusing disk {number}: it is neither a file-backed virtual disk nor the \
+         removable USB drive whose serial is in RUFUST_TEST_USB_SERIAL"
     );
     Some(identity)
+}
+
+/// Virtual disks are always fair game. A physical disk qualifies only as a
+/// removable USB drive whose exact serial the caller named, which is how
+/// `scripts/windows/usb-tests.ps1` opts one disposable stick in.
+fn disposable(identity: &DeviceIdentity) -> bool {
+    if identity.transport == "loop" {
+        return true;
+    }
+    let named = std::env::var("RUFUST_TEST_USB_SERIAL").unwrap_or_default();
+    identity.transport == "usb"
+        && identity.removable
+        && !identity.serial.is_empty()
+        && identity.serial == named
 }
 
 fn request(identity: &DeviceIdentity, operation: HelperOperation) -> HelperRequest {

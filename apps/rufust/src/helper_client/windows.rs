@@ -375,7 +375,17 @@ mod tests {
             .into_iter()
             .find(|device| device.minor == number)
             .expect("the disk is attached");
-        assert_eq!(identity.transport, "loop", "refusing a non-virtual disk");
+        // A virtual disk, or the one removable USB drive named by serial
+        // (`scripts/windows/usb-tests.ps1`).
+        let named = std::env::var("RUFUST_TEST_USB_SERIAL").unwrap_or_default();
+        assert!(
+            identity.transport == "loop"
+                || (identity.transport == "usb"
+                    && identity.removable
+                    && !identity.serial.is_empty()
+                    && identity.serial == named),
+            "refusing a disk that is neither virtual nor the named USB drive"
+        );
         let block = platform::to_block_device(&identity, &platform::volumes());
         Some(HelperRequest {
             protocol_version: PROTOCOL_VERSION,
