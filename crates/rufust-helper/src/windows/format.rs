@@ -7,7 +7,9 @@ use std::sync::Mutex;
 use rufust_core::plan::FileSystem;
 use rufust_core::progress::CancellationToken;
 use rufust_platform::windows::wide;
-use windows_sys::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
+use windows_sys::Win32::System::LibraryLoader::{
+    GetProcAddress, LoadLibraryExW, LOAD_LIBRARY_SEARCH_SYSTEM32,
+};
 
 use crate::HelperError;
 
@@ -150,8 +152,16 @@ pub(crate) fn format_volume(
         .lock()
         .map_err(|_| HelperError::Operation("format state was poisoned".into()))?;
     let library = wide("fmifs.dll");
-    // SAFETY: loads a system library by name; it stays loaded for the process.
-    let module = unsafe { LoadLibraryW(library.as_ptr()) };
+    // SAFETY: loads fmifs.dll from System32 only. The flag also covers the
+    // providers it imports (ulib.dll, IfsUtil.dll), so a copy beside the
+    // executable is ignored. The module stays loaded for the process.
+    let module = unsafe {
+        LoadLibraryExW(
+            library.as_ptr(),
+            std::ptr::null_mut(),
+            LOAD_LIBRARY_SEARCH_SYSTEM32,
+        )
+    };
     if module.is_null() {
         return Err(HelperError::MissingTool("fmifs.dll".into()));
     }

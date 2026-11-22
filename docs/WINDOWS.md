@@ -53,9 +53,10 @@ The volume table (`FindFirstVolume`, `IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS`)
 marks the disk holding the Windows directory (`ContainsRoot`), the system
 partition named in `HKLM\SYSTEM\Setup` (`ContainsBoot`), a page or swap file
 (`ContainsSwap`), mounted volumes (`MountedChildren`), and volumes spanning
-several disks (`ActiveVolumeMember`). Virtual disks (attached VHDs) are never
-listed, like Linux loop devices. Hot-plug polls disk interfaces and volume
-names twice a second.
+several disks (`ActiveVolumeMember`). The disk that holds `rufust.exe` is
+omitted, so a portable copy cannot erase the stick it was started from.
+Virtual disks (attached VHDs) are never listed, like Linux loop devices.
+Hot-plug polls disk interfaces and volume names twice a second.
 
 ## Disk engine
 
@@ -63,8 +64,14 @@ names twice a second.
 
 - **Revalidation.** The worker rediscovers the disk and compares the
   interface path, disk number, size, sector size, serial, and model, then
-  refuses read-only media and every blocking risk above. The source must not
-  live on a volume of the target.
+  refuses read-only media, every blocking risk above, and the disk that holds
+  `rufust.exe`. The source must not live on a volume of the target. The write
+  handle is the device interface path from that check, not
+  `\\.\PhysicalDriveN`. Number, size, sector size, and serial are read from
+  that handle again before the volumes are locked (after listing them), before
+  every raw write, on every poll for a new volume, and before each volume
+  step: formatting, the UEFI:NTFS files, the file copy, and the boot record.
+  The worker refuses to write if it cannot trace `rufust.exe` to a disk.
 - **Exclusive access.** Every volume on the target is locked
   (`FSCTL_LOCK_VOLUME`, retried, then forced) and dismounted before raw I/O,
   and stays locked until the write is done. Boot records are written through
@@ -104,6 +111,10 @@ get-info access, which needs no elevation.
 - `rufust.exe` embeds the original Rufus icon and an `asInvoker` manifest
   (per-monitor DPI aware, common controls 6). Release builds use the GUI
   subsystem; `--version` still prints when output is redirected.
+- Both executables link the C runtime statically (`.cargo/config.toml`), so
+  they need no Visual C++ redistributable, and load DLLs from System32 only
+  (`/DEPENDENTLOADFLAG:0x800` in `build.rs` plus `SetDefaultDllDirectories`
+  at startup). The release workflow checks both with `dumpbin`.
 
 ## Building
 

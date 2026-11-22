@@ -1,0 +1,6 @@
+# Link the C runtime into the Windows executables, so the portable exe and
+# the installer run on a clean Windows install without the Visual C++
+# redistributable. It also leaves no VCRUNTIME140.dll for the System32-only
+# DLL search to look up.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]

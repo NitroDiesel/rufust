@@ -8,12 +8,13 @@
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::os::windows::fs::{FileExt, OpenOptionsExt};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use rufust_core::plan::PartitionScheme;
 use rufust_core::progress::CancellationToken;
-use rufust_platform::windows::{self as platform, ioctl, wide, Volume};
+use rufust_platform::windows::{self as platform, ioctl, wide, OpenedDisk, Volume};
+use rufust_platform::DeviceIdentity;
 use windows_sys::core::GUID;
 use windows_sys::Win32::Storage::FileSystem::{
     DeleteVolumeMountPointW, GetLogicalDrives, SetVolumeMountPointW, FILE_FLAG_WRITE_THROUGH,
@@ -62,7 +63,7 @@ impl AlignedBuffer {
     }
 }
 
-fn open_rw(path: &str) -> io::Result<File> {
+fn open_rw(path: impl AsRef<Path>) -> io::Result<File> {
     OpenOptions::new()
         .read(true)
         .write(true)
@@ -101,29 +102,60 @@ fn read_exact_at(file: &File, mut offset: u64, mut buffer: &mut [u8]) -> io::Res
     Ok(())
 }
 
-/// The whole target disk, opened read-write.
+/// The whole target disk, opened read-write on the device interface path
+/// captured at revalidation. `\\.\PhysicalDriveN` is not opened: that number
+/// can be reused while this handle still names the confirmed device.
 pub(crate) struct Disk {
     file: File,
     pub number: u32,
     pub size: u64,
     pub sector: u32,
+    bound: OpenedDisk,
 }
 
 impl Disk {
-    pub(crate) fn open(number: u32, size: u64, sector: u32) -> Result<Self, HelperError> {
-        let path = platform::physical_drive_path(number);
-        let file = open_rw(&path.to_string_lossy()).map_err(|error| {
+    pub(crate) fn open(identity: &DeviceIdentity) -> Result<Self, HelperError> {
+        let path = &identity.sysfs_path;
+        let file = open_rw(path).map_err(|error| {
             HelperError::Operation(format!("could not open {}: {error}", path.display()))
         })?;
+        let bound = platform::read_opened_disk(&file).map_err(|error| {
+            HelperError::Revalidation(format!("the target device is no longer available: {error}"))
+        })?;
+        let expected = OpenedDisk {
+            number: identity.minor,
+            size_bytes: identity.size_bytes,
+            logical_sector_size: identity.logical_sector_size,
+            serial: identity.serial.clone(),
+        };
+        if let Some(reason) = expected.difference(&bound) {
+            return Err(HelperError::Revalidation(reason.into()));
+        }
         Ok(Self {
             file,
-            number,
-            size,
-            sector,
+            number: bound.number,
+            size: bound.size_bytes,
+            sector: bound.logical_sector_size.max(512),
+            bound,
         })
     }
 
+    /// The open handle still names the disk revalidation confirmed.
+    pub(crate) fn confirm(&self) -> Result<(), HelperError> {
+        let observed = platform::read_opened_disk(&self.file).map_err(|error| {
+            HelperError::Revalidation(format!("the target device is no longer available: {error}"))
+        })?;
+        match self.bound.difference(&observed) {
+            Some(reason) => Err(HelperError::Revalidation(reason.into())),
+            None => Ok(()),
+        }
+    }
+
+    /// Every raw write first rechecks that the handle still names the
+    /// confirmed disk, so a card swapped into the same reader mid-job is
+    /// refused when its size or serial differs.
     pub(crate) fn write_at(&self, offset: u64, bytes: &[u8]) -> Result<(), HelperError> {
+        self.confirm()?;
         write_all_at(&self.file, offset, bytes).map_err(|error| {
             HelperError::Operation(format!("write failed at byte {offset}: {error}"))
         })
@@ -240,18 +272,21 @@ fn mount_label(volume: &Volume) -> String {
         .unwrap_or_else(|| volume.name.clone())
 }
 
-/// Lock and dismount every volume on `disk`.
-pub(crate) fn lock_disk_volumes(disk: u32) -> Result<Vec<VolumeLock>, HelperError> {
-    platform::volumes()
-        .iter()
-        .filter(|volume| volume.on_disk(disk))
-        .map(VolumeLock::acquire)
-        .collect()
+/// Lock and dismount every volume on `disk`. The volumes are listed once and
+/// the handle is confirmed before any is touched, so a disk that inherited
+/// the number in the meantime is never dismounted.
+pub(crate) fn lock_disk_volumes(disk: &Disk) -> Result<Vec<VolumeLock>, HelperError> {
+    let volumes = platform::volumes()
+        .into_iter()
+        .filter(|volume| volume.on_disk(disk.number))
+        .collect::<Vec<_>>();
+    disk.confirm()?;
+    volumes.iter().map(VolumeLock::acquire).collect()
 }
 
 /// Flush a mounted volume's file system to the device.
 pub(crate) fn flush_volume(volume: &Volume) -> Result<(), HelperError> {
-    open_rw(&volume.device_path())
+    open_rw(volume.device_path())
         .and_then(|file| file.sync_all())
         .map_err(|error| HelperError::Operation(format!("could not flush the volume: {error}")))
 }
@@ -262,18 +297,25 @@ pub(crate) fn cycle_volume(volume: &Volume) -> Result<(), HelperError> {
     Ok(())
 }
 
-/// Wait for the volume that starts at `offset` on `disk` to appear.
+/// Wait for the volume that starts at `offset` on `disk`.
+///
+/// The disk number is read from the open handle on every poll. A device that
+/// inherited the number after the target was removed does not match.
 pub(crate) fn wait_for_volume(
-    disk: u32,
+    disk: &Disk,
     offset: u64,
     cancel: &CancellationToken,
 ) -> Result<Volume, HelperError> {
     let deadline = Instant::now() + Duration::from_secs(20);
     loop {
         check_cancel(cancel)?;
+        disk.confirm()?;
         if let Some(volume) = platform::volumes().into_iter().find(|volume| {
-            volume.extents.len() == 1 && volume.on_disk(disk) && volume.extents[0].offset == offset
+            volume.extents.len() == 1
+                && volume.on_disk(disk.number)
+                && volume.extents[0].offset == offset
         }) {
+            disk.confirm()?;
             return Ok(volume);
         }
         if Instant::now() >= deadline {
@@ -369,6 +411,7 @@ pub(crate) fn create_layout(
     if partitions.len() > 4 {
         return Err(HelperError::Operation("too many partitions".into()));
     }
+    disk.confirm()?;
     disk.wipe_ends()?;
     let handle = &disk.file;
     let fail = |step: &str, error: io::Error| {

@@ -27,6 +27,9 @@ fn valid_name(name: &str) -> bool {
 
 /// Serve one request from the desktop. Returns the process exit code.
 pub fn serve_pipe(name: &str) -> u8 {
+    if !rufust_platform::windows::restrict_dll_search() {
+        return 1;
+    }
     if !valid_name(name) {
         return 2;
     }

@@ -26,7 +26,7 @@ use windows_sys::Win32::Foundation::{
     MAX_PATH,
 };
 use windows_sys::Win32::Storage::FileSystem::{
-    CreateFileW, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose,
+    CreateFileW, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDriveTypeW,
     GetVolumeNameForVolumeMountPointW, GetVolumePathNameW, GetVolumePathNamesForVolumeNameW,
     QueryDosDeviceW, FILE_SHARE_READ, FILE_SHARE_WRITE, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS,
     OPEN_EXISTING,
@@ -34,6 +34,9 @@ use windows_sys::Win32::Storage::FileSystem::{
 use windows_sys::Win32::System::Ioctl::{
     GUID_DEVINTERFACE_DISK, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, IOCTL_DISK_IS_WRITABLE,
     IOCTL_STORAGE_GET_DEVICE_NUMBER, IOCTL_STORAGE_QUERY_PROPERTY,
+};
+use windows_sys::Win32::System::LibraryLoader::{
+    SetDefaultDllDirectories, LOAD_LIBRARY_SEARCH_SYSTEM32,
 };
 use windows_sys::Win32::System::Registry::{RegGetValueW, HKEY_LOCAL_MACHINE, RRF_RT_REG_SZ};
 use windows_sys::Win32::System::SystemInformation::GetWindowsDirectoryW;
@@ -318,6 +321,106 @@ pub fn volume_of_path(path: &Path) -> Option<String> {
         return None;
     }
     Some(from_wide(&name))
+}
+
+/// Disks that hold the running executable: empty when it runs from a network
+/// share, `None` when a local location cannot be traced to its disks. The
+/// worker refuses to write in the `None` case rather than guess.
+pub fn executable_disks() -> Option<Vec<u32>> {
+    const DRIVE_REMOTE: u32 = 4;
+    let path = wide(&std::env::current_exe().ok()?);
+    let mut root = [0u16; MAX_PATH as usize + 1];
+    // SAFETY: both buffers are valid for their stated lengths.
+    if unsafe { GetVolumePathNameW(path.as_ptr(), root.as_mut_ptr(), root.len() as u32) } == 0 {
+        return None;
+    }
+    // SAFETY: `root` is NUL-terminated.
+    if unsafe { GetDriveTypeW(root.as_ptr()) } == DRIVE_REMOTE {
+        return Some(Vec::new());
+    }
+    let mut name = [0u16; MAX_PATH as usize + 1];
+    // SAFETY: `root` is NUL-terminated and `name` is writable.
+    if unsafe {
+        GetVolumeNameForVolumeMountPointW(root.as_ptr(), name.as_mut_ptr(), name.len() as u32)
+    } == 0
+    {
+        return None;
+    }
+    let volume = describe_volume(&from_wide(&name))?;
+    let disks = volume
+        .extents
+        .iter()
+        .map(|extent| extent.disk)
+        .collect::<Vec<_>>();
+    (!disks.is_empty()).then_some(disks)
+}
+
+/// A removable disk Rufust was started from is omitted from the device list.
+/// The Windows disk and the system partition stay listed with their risks;
+/// the window already hides those.
+pub(crate) fn omit_running_copy(disk: u32, risks: &[DeviceRisk], own: &[u32]) -> bool {
+    own.contains(&disk)
+        && !risks.contains(&DeviceRisk::ContainsRoot)
+        && !risks.contains(&DeviceRisk::ContainsBoot)
+}
+
+/// Facts read from an open disk handle. Writes compare these with the
+/// identity captured at revalidation so a reused disk number cannot be
+/// accepted in its place.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct OpenedDisk {
+    pub number: u32,
+    pub size_bytes: u64,
+    pub logical_sector_size: u32,
+    pub serial: String,
+}
+
+impl OpenedDisk {
+    /// Why `observed` is not the disk this handle was bound to.
+    pub fn difference(&self, observed: &Self) -> Option<&'static str> {
+        if self.number != observed.number {
+            Some("disk number changed")
+        } else if self.size_bytes != observed.size_bytes {
+            Some("device size changed")
+        } else if self.logical_sector_size != observed.logical_sector_size {
+            Some("logical sector size changed")
+        } else if self.serial != observed.serial {
+            Some("device serial changed")
+        } else {
+            None
+        }
+    }
+}
+
+/// Read number, size, sector size, and serial from a disk handle.
+pub fn read_opened_disk(device: &impl AsRawHandle) -> io::Result<OpenedDisk> {
+    let mut number = [0u8; 12];
+    ioctl(device, IOCTL_STORAGE_GET_DEVICE_NUMBER, &[], &mut number)?;
+    let query = [0u8; 12];
+    let mut descriptor = vec![0u8; 4096];
+    let length = ioctl(
+        device,
+        IOCTL_STORAGE_QUERY_PROPERTY,
+        &query,
+        &mut descriptor,
+    )?;
+    let descriptor = &descriptor[..length];
+    let mut geometry = [0u8; 256];
+    ioctl(device, IOCTL_DISK_GET_DRIVE_GEOMETRY_EX, &[], &mut geometry)?;
+    Ok(OpenedDisk {
+        number: u32_at(&number, 4),
+        size_bytes: u64_at(&geometry, 24),
+        logical_sector_size: u32_at(&geometry, 20),
+        serial: descriptor_string(descriptor, u32_at(descriptor, 24)),
+    })
+}
+
+/// Load later DLLs from System32 only. The executable also links with
+/// `/DEPENDENTLOADFLAG:0x800`, which applies the same restriction to its
+/// static imports before `main` runs.
+pub fn restrict_dll_search() -> bool {
+    // SAFETY: process-wide loader policy; no pointers are passed.
+    unsafe { SetDefaultDllDirectories(LOAD_LIBRARY_SEARCH_SYSTEM32) != 0 }
 }
 
 /// The disks that store `path`, or nothing for network and unknown paths.
@@ -611,9 +714,13 @@ pub(super) fn list_block_devices(show_fixed: bool) -> Result<Vec<BlockDevice>, P
     let identities = discover_devices(show_fixed)?;
     let volumes = volumes();
     let system = SystemVolumes::read();
+    // Listing stays usable if the location cannot be traced; the worker
+    // refuses to write in that case.
+    let own = executable_disks().unwrap_or_default();
     Ok(identities
         .iter()
         .map(|identity| block_device_with(identity, &volumes, &system))
+        .filter(|device| !omit_running_copy(device.fingerprint.number.minor, &device.risks, &own))
         .collect())
 }
 
@@ -784,6 +891,48 @@ pub(super) fn probe_capabilities() -> CapabilityReport {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_running_executable_is_traced_to_its_disk() {
+        // Test binaries run from a local target directory.
+        let disks = executable_disks().expect("a local executable resolves");
+        assert!(!disks.is_empty());
+    }
+
+    #[test]
+    fn a_running_copy_is_omitted_unless_the_disk_is_already_protected() {
+        let usb = [DeviceRisk::MountedChildren];
+        assert!(omit_running_copy(2, &usb, &[2]));
+        assert!(!omit_running_copy(2, &usb, &[0]));
+        assert!(!omit_running_copy(0, &[DeviceRisk::ContainsRoot], &[0]));
+        assert!(!omit_running_copy(1, &[DeviceRisk::ContainsBoot], &[1]));
+    }
+
+    #[test]
+    fn an_opened_disk_must_keep_number_size_sector_and_serial() {
+        let bound = OpenedDisk {
+            number: 2,
+            size_bytes: 16 << 30,
+            logical_sector_size: 512,
+            serial: "AA".into(),
+        };
+        assert_eq!(bound.difference(&bound.clone()), None);
+        let mut swapped = bound.clone();
+        swapped.number = 3;
+        assert_eq!(bound.difference(&swapped), Some("disk number changed"));
+        swapped = bound.clone();
+        swapped.size_bytes -= 512;
+        assert_eq!(bound.difference(&swapped), Some("device size changed"));
+        swapped = bound.clone();
+        swapped.logical_sector_size = 4096;
+        assert_eq!(
+            bound.difference(&swapped),
+            Some("logical sector size changed")
+        );
+        swapped = bound.clone();
+        swapped.serial = "BB".into();
+        assert_eq!(bound.difference(&swapped), Some("device serial changed"));
+    }
 
     #[test]
     fn parses_physical_drive_nodes() {
