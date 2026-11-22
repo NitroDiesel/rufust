@@ -185,10 +185,18 @@ pub fn revalidate_target(expected: &TargetIdentity) -> Result<DeviceIdentity, He
     }
     let block = platform::to_block_device(&observed, &platform::volumes());
     refuse_blocking_risks(&block)?;
-    if platform::executable_disks().contains(&observed.minor) {
-        return Err(HelperError::Revalidation(
-            "Rufust is running from this device".into(),
-        ));
+    match platform::executable_disks() {
+        Some(own) if own.contains(&observed.minor) => {
+            return Err(HelperError::Revalidation(
+                "Rufust is running from this device".into(),
+            ))
+        }
+        Some(_) => {}
+        None => {
+            return Err(HelperError::Revalidation(
+                "could not tell which disk holds rufust.exe; run it from a local folder".into(),
+            ))
+        }
     }
     Ok(observed)
 }
@@ -399,7 +407,7 @@ impl Target<'_> {
         let disk = Disk::open(self.identity)?;
         check_cancel(self.cancel)?;
         report.stage(ProgressStage::Unmounting, "Unmounting the target");
-        let locks = disk::lock_disk_volumes(disk.number)?;
+        let locks = disk::lock_disk_volumes(&disk)?;
         disk.confirm()?;
         Ok((locks, disk))
     }
@@ -663,12 +671,14 @@ fn label_for(filesystem: FileSystem, label: &str) -> String {
 
 /// Create the file system on a new, hidden volume.
 fn format_filesystem(
+    disk: &Disk,
     volume: &Volume,
     span: Span,
     format: &FormatSpec,
     target: &Target<'_>,
     report: &mut Reporter<'_>,
 ) -> Result<(), HelperError> {
+    disk.confirm()?;
     report.stage(ProgressStage::Formatting, format.filesystem.as_str());
     let label = label_for(format.filesystem, &format.label);
     if format.filesystem == FileSystem::Fat32 && span.size > LARGE_FAT32 {
@@ -693,6 +703,7 @@ fn format_filesystem(
             &label,
             target.cancel,
             &mut |offset, bytes| {
+                disk.confirm().map_err(io::Error::other)?;
                 let staged = &mut aligned.as_mut_slice()[..bytes.len()];
                 staged.copy_from_slice(bytes);
                 lock.write_at(offset, staged)
@@ -794,7 +805,7 @@ fn format_media(
         }
     })?;
     let letter = disk::hide_volume(&volume);
-    format_filesystem(&volume, span, format, target, report)?;
+    format_filesystem(&disk, &volume, span, format, target, report)?;
     disk::show_volume(&volume, letter);
     Ok(())
 }
@@ -877,8 +888,9 @@ fn write_windows_media(
     };
     check_cancel(cancel)?;
 
-    format_filesystem(&data, layout.data, format, target, report)?;
+    format_filesystem(&disk, &data, layout.data, format, target, report)?;
     if let Some(volume) = &uefi {
+        disk.confirm()?;
         format::format_volume(
             &volume.name,
             FileSystem::Fat,
@@ -898,6 +910,7 @@ fn write_windows_media(
 
     report.stage(ProgressStage::ExtractingFiles, "Copying Windows files");
     let root = volume_root(&data, cancel)?;
+    disk.confirm()?;
     let copies = copy_windows_files(&mut plan, &root, cancel, report)?;
     report.stage(ProgressStage::Syncing, "Flushing the copied files");
     disk::flush_volume(&data)?;
@@ -949,6 +962,7 @@ fn install_bios_boot_code(
         filesystem,
         start,
     )?;
+    disk.confirm()?;
     lock.write_at(0, area.as_slice())?;
     lock.flush()?;
     drop(lock);

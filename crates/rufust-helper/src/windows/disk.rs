@@ -151,7 +151,11 @@ impl Disk {
         }
     }
 
+    /// Every raw write first rechecks that the handle still names the
+    /// confirmed disk, so a card swapped into the same reader mid-job is
+    /// refused when its size or serial differs.
     pub(crate) fn write_at(&self, offset: u64, bytes: &[u8]) -> Result<(), HelperError> {
+        self.confirm()?;
         write_all_at(&self.file, offset, bytes).map_err(|error| {
             HelperError::Operation(format!("write failed at byte {offset}: {error}"))
         })
@@ -268,13 +272,16 @@ fn mount_label(volume: &Volume) -> String {
         .unwrap_or_else(|| volume.name.clone())
 }
 
-/// Lock and dismount every volume on `disk`.
-pub(crate) fn lock_disk_volumes(disk: u32) -> Result<Vec<VolumeLock>, HelperError> {
-    platform::volumes()
-        .iter()
-        .filter(|volume| volume.on_disk(disk))
-        .map(VolumeLock::acquire)
-        .collect()
+/// Lock and dismount every volume on `disk`. The volumes are listed once and
+/// the handle is confirmed before any is touched, so a disk that inherited
+/// the number in the meantime is never dismounted.
+pub(crate) fn lock_disk_volumes(disk: &Disk) -> Result<Vec<VolumeLock>, HelperError> {
+    let volumes = platform::volumes()
+        .into_iter()
+        .filter(|volume| volume.on_disk(disk.number))
+        .collect::<Vec<_>>();
+    disk.confirm()?;
+    volumes.iter().map(VolumeLock::acquire).collect()
 }
 
 /// Flush a mounted volume's file system to the device.

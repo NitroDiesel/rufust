@@ -68,8 +68,10 @@ Hot-plug polls disk interfaces and volume names twice a second.
   `rufust.exe`. The source must not live on a volume of the target. The write
   handle is the device interface path from that check, not
   `\\.\PhysicalDriveN`. Number, size, sector size, and serial are read from
-  that handle again before the volumes are locked, before the partition table
-  is written, and on every poll for a new volume.
+  that handle again before the volumes are locked (after listing them), before
+  every raw write, on every poll for a new volume, and before each volume
+  step: formatting, the UEFI:NTFS files, the file copy, and the boot record.
+  The worker refuses to write if it cannot trace `rufust.exe` to a disk.
 - **Exclusive access.** Every volume on the target is locked
   (`FSCTL_LOCK_VOLUME`, retried, then forced) and dismounted before raw I/O,
   and stays locked until the write is done. Boot records are written through

@@ -202,8 +202,10 @@ implementation details:
 - On Windows, the window never runs as administrator and never opens a disk.
   Only the UAC-elevated worker writes, after the same revalidation. It opens
   the device interface path from that check and re-reads the number, size,
-  sector size, and serial on that handle before locking, before writing, and
-  before accepting a new volume. It refuses the disk that holds `rufust.exe`.
+  sector size, and serial on that handle before locking, before every raw
+  write, before accepting a new volume, and before each volume step. It
+  refuses the disk that holds `rufust.exe`, and refuses to write when it
+  cannot trace `rufust.exe` to a disk.
   DLL search for both executables is System32 only. Every target volume stays
   locked and dismounted during raw writes; the window's manifest stays
   `asInvoker`.

@@ -134,15 +134,18 @@ Elevated worker (administrator, no window)
      holds rufust.exe
   -> open that interface path, not \\.\PhysicalDriveN, and recheck the
      number, size, sector size, and serial on the open handle
-  -> lock and dismount every volume on that disk
-  -> recheck the handle again before writing and before accepting a volume
+  -> list that disk's volumes, recheck the handle, then lock and dismount them
+  -> recheck the handle before every raw write, before accepting a volume,
+     and before each volume step (format, file copy, boot record)
   -> write, verify, flush, and exit
 ```
 
 The window never runs elevated and never opens a disk; disk discovery opens
 devices with no access rights. Each operation needs its own UAC approval, and
 declining writes nothing. Virtual disks are never listed as targets. The
-disk that holds `rufust.exe` is omitted from the list. The worker
+disk that holds `rufust.exe` is omitted from the list. If the worker
+cannot trace `rufust.exe` to a disk (a network share counts as none), it
+refuses to write. The worker
 runs the bytes of the executable the user started, and both executables load
 DLLs from System32 only (`SetDefaultDllDirectories` and
 `/DEPENDENTLOADFLAG:0x800`; `fmifs.dll` is loaded with
@@ -152,5 +155,6 @@ setup as the original user, never elevated. Authenticode signing of releases
 is an open gate. Compressed images are decoded in the elevated worker, so
 only memory-safe Rust decoders are used there. Formatting uses Windows' own
 file system providers. A card swapped in the same reader is refused when its
-size or serial differs; one with the same size and serial (or none) is not
-detected.
+size or serial differs: at the next raw write, or at the next volume step if
+the swap happens while Windows formats or files are copied. One with the same
+size and serial (or none) is not detected.

@@ -26,7 +26,7 @@ use windows_sys::Win32::Foundation::{
     MAX_PATH,
 };
 use windows_sys::Win32::Storage::FileSystem::{
-    CreateFileW, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose,
+    CreateFileW, FindFirstVolumeW, FindNextVolumeW, FindVolumeClose, GetDriveTypeW,
     GetVolumeNameForVolumeMountPointW, GetVolumePathNameW, GetVolumePathNamesForVolumeNameW,
     QueryDosDeviceW, FILE_SHARE_READ, FILE_SHARE_WRITE, IOCTL_VOLUME_GET_VOLUME_DISK_EXTENTS,
     OPEN_EXISTING,
@@ -323,13 +323,36 @@ pub fn volume_of_path(path: &Path) -> Option<String> {
     Some(from_wide(&name))
 }
 
-/// Disks that hold the running executable, or nothing when the path cannot
-/// be resolved (a network path, for example).
-pub fn executable_disks() -> Vec<u32> {
-    std::env::current_exe()
-        .ok()
-        .map(|path| disks_holding_path(&path))
-        .unwrap_or_default()
+/// Disks that hold the running executable: empty when it runs from a network
+/// share, `None` when a local location cannot be traced to its disks. The
+/// worker refuses to write in the `None` case rather than guess.
+pub fn executable_disks() -> Option<Vec<u32>> {
+    const DRIVE_REMOTE: u32 = 4;
+    let path = wide(&std::env::current_exe().ok()?);
+    let mut root = [0u16; MAX_PATH as usize + 1];
+    // SAFETY: both buffers are valid for their stated lengths.
+    if unsafe { GetVolumePathNameW(path.as_ptr(), root.as_mut_ptr(), root.len() as u32) } == 0 {
+        return None;
+    }
+    // SAFETY: `root` is NUL-terminated.
+    if unsafe { GetDriveTypeW(root.as_ptr()) } == DRIVE_REMOTE {
+        return Some(Vec::new());
+    }
+    let mut name = [0u16; MAX_PATH as usize + 1];
+    // SAFETY: `root` is NUL-terminated and `name` is writable.
+    if unsafe {
+        GetVolumeNameForVolumeMountPointW(root.as_ptr(), name.as_mut_ptr(), name.len() as u32)
+    } == 0
+    {
+        return None;
+    }
+    let volume = describe_volume(&from_wide(&name))?;
+    let disks = volume
+        .extents
+        .iter()
+        .map(|extent| extent.disk)
+        .collect::<Vec<_>>();
+    (!disks.is_empty()).then_some(disks)
 }
 
 /// A removable disk Rufust was started from is omitted from the device list.
@@ -691,7 +714,9 @@ pub(super) fn list_block_devices(show_fixed: bool) -> Result<Vec<BlockDevice>, P
     let identities = discover_devices(show_fixed)?;
     let volumes = volumes();
     let system = SystemVolumes::read();
-    let own = executable_disks();
+    // Listing stays usable if the location cannot be traced; the worker
+    // refuses to write in that case.
+    let own = executable_disks().unwrap_or_default();
     Ok(identities
         .iter()
         .map(|identity| block_device_with(identity, &volumes, &system))
@@ -866,6 +891,13 @@ pub(super) fn probe_capabilities() -> CapabilityReport {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_running_executable_is_traced_to_its_disk() {
+        // Test binaries run from a local target directory.
+        let disks = executable_disks().expect("a local executable resolves");
+        assert!(!disks.is_empty());
+    }
 
     #[test]
     fn a_running_copy_is_omitted_unless_the_disk_is_already_protected() {
