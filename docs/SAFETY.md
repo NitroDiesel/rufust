@@ -129,18 +129,28 @@ Elevated worker (administrator, no window)
   -> open the source refusing links, deny other writers, recheck its size
   -> refuse a source on the target; rediscover and compare the interface
      path, disk number, size, sector size, serial, and model
-  -> refuse read-only targets and disks holding Windows, the system
-     partition, a page file, or part of a spanned volume
-  -> lock and dismount every target volume for the whole raw write
+  -> refuse read-only targets, disks holding Windows, the system
+     partition, a page file, part of a spanned volume, or the disk that
+     holds rufust.exe
+  -> open that interface path, not \\.\PhysicalDriveN, and recheck the
+     number, size, sector size, and serial on the open handle
+  -> lock and dismount every volume on that disk
+  -> recheck the handle again before writing and before accepting a volume
   -> write, verify, flush, and exit
 ```
 
 The window never runs elevated and never opens a disk; disk discovery opens
 devices with no access rights. Each operation needs its own UAC approval, and
 declining writes nothing. Virtual disks are never listed as targets. The
-worker runs the bytes of the executable the user started, as upstream Rufus
-does. The installer puts that executable in Program Files, where only
-administrators can replace it, and starts the app after setup as the original
-user, never elevated. Authenticode signing of releases is an open gate. Compressed images are
-decoded in the elevated worker, so only memory-safe Rust decoders are used
-there. Formatting uses Windows' own file system providers.
+disk that holds `rufust.exe` is omitted from the list. The worker
+runs the bytes of the executable the user started, and both executables load
+DLLs from System32 only (`SetDefaultDllDirectories` and
+`/DEPENDENTLOADFLAG:0x800`; `fmifs.dll` is loaded with
+`LOAD_LIBRARY_SEARCH_SYSTEM32`). The installer puts that executable in Program
+Files, where only administrators can replace it, and starts the app after
+setup as the original user, never elevated. Authenticode signing of releases
+is an open gate. Compressed images are decoded in the elevated worker, so
+only memory-safe Rust decoders are used there. Formatting uses Windows' own
+file system providers. A card swapped in the same reader is refused when its
+size or serial differs; one with the same size and serial (or none) is not
+detected.

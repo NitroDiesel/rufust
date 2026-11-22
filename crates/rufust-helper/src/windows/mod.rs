@@ -185,6 +185,11 @@ pub fn revalidate_target(expected: &TargetIdentity) -> Result<DeviceIdentity, He
     }
     let block = platform::to_block_device(&observed, &platform::volumes());
     refuse_blocking_risks(&block)?;
+    if platform::executable_disks().contains(&observed.minor) {
+        return Err(HelperError::Revalidation(
+            "Rufust is running from this device".into(),
+        ));
+    }
     Ok(observed)
 }
 
@@ -239,6 +244,11 @@ pub fn execute(
     if !is_elevated() {
         return Err(HelperError::Operation(
             "writing to disks needs administrator rights".into(),
+        ));
+    }
+    if !platform::restrict_dll_search() {
+        return Err(HelperError::Operation(
+            "could not restrict DLL search to System32".into(),
         ));
     }
     let cancel = options.cancel.clone();
@@ -379,25 +389,18 @@ struct Target<'a> {
 }
 
 impl Target<'_> {
-    fn number(&self) -> u32 {
-        self.identity.minor
-    }
-
     fn sector(&self) -> u64 {
         u64::from(self.identity.logical_sector_size.max(512))
     }
 
-    /// Lock every volume on the disk, then open the disk itself.
+    /// Open the revalidated interface path, confirm the handle, then lock.
     fn open(&self, report: &mut Reporter<'_>) -> Result<(Vec<VolumeLock>, Disk), HelperError> {
-        report.stage(ProgressStage::Unmounting, "Unmounting the target");
-        let locks = disk::lock_disk_volumes(self.number())?;
-        check_cancel(self.cancel)?;
         report.stage(ProgressStage::Authorizing, "Opening the device");
-        let disk = Disk::open(
-            self.number(),
-            self.identity.size_bytes,
-            self.identity.logical_sector_size.max(512),
-        )?;
+        let disk = Disk::open(self.identity)?;
+        check_cancel(self.cancel)?;
+        report.stage(ProgressStage::Unmounting, "Unmounting the target");
+        let locks = disk::lock_disk_volumes(disk.number)?;
+        disk.confirm()?;
         Ok((locks, disk))
     }
 }
@@ -780,17 +783,16 @@ fn format_media(
     };
     disk::create_layout(&disk, format.scheme, &partitions)?;
     drop(locks);
-    let volume =
-        disk::wait_for_volume(disk.number, span.offset, target.cancel).map_err(|error| {
-            if format.scheme == PartitionScheme::SuperFloppy {
-                HelperError::Operation(
+    let volume = disk::wait_for_volume(&disk, span.offset, target.cancel).map_err(|error| {
+        if format.scheme == PartitionScheme::SuperFloppy {
+            HelperError::Operation(
                 "Windows mounts super-floppy volumes only on removable media; choose MBR or GPT"
                     .into(),
             )
-            } else {
-                error
-            }
-        })?;
+        } else {
+            error
+        }
+    })?;
     let letter = disk::hide_volume(&volume);
     format_filesystem(&volume, span, format, target, report)?;
     disk::show_volume(&volume, letter);
@@ -863,11 +865,11 @@ fn write_windows_media(
     }
     disk::create_layout(&disk, format.scheme, &partitions)?;
     drop(locks);
-    let data = disk::wait_for_volume(disk.number, layout.data.offset, cancel)?;
+    let data = disk::wait_for_volume(&disk, layout.data.offset, cancel)?;
     let letter = disk::hide_volume(&data);
     let uefi = match layout.uefi_ntfs {
         Some(span) => {
-            let volume = disk::wait_for_volume(disk.number, span.offset, cancel)?;
+            let volume = disk::wait_for_volume(&disk, span.offset, cancel)?;
             disk::hide_volume(&volume);
             Some(volume)
         }

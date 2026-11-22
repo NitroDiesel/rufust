@@ -92,8 +92,8 @@ modules. Read [`WINDOWS.md`](WINDOWS.md) before changing them. In short:
   `rufust.exe` (`--elevated-worker <pipe>`), approved through UAC, that serves
   one request over two private named pipes and accepts only its own process;
 - discovery uses zero-access storage IOCTLs; the disk holding Windows, the
-  system partition, page files, spanned volumes, and virtual disks are
-  protected or hidden;
+  system partition, page files, spanned volumes, virtual disks, and the
+  disk holding `rufust.exe` are protected or hidden;
 - the engine locks and dismounts the target's volumes, partitions with the
   disk IOCTLs, formats with Windows' `FormatEx` plus a built-in large-FAT32
   formatter, decodes compressed images in process, and attaches VHD/VHDX
@@ -200,10 +200,13 @@ implementation details:
   Keep permissive udev rules, setuid launchers, direct `sudo` fallbacks, and a
   root GUI outside the design.
 - On Windows, the window never runs as administrator and never opens a disk.
-  Only the UAC-elevated worker writes, after the same revalidation, and only
-  to a `\\.\PhysicalDriveN` whose interface path, number, size, sector size,
-  serial, and model still match. Every target volume stays locked and
-  dismounted during raw writes; the window's manifest stays `asInvoker`.
+  Only the UAC-elevated worker writes, after the same revalidation. It opens
+  the device interface path from that check and re-reads the number, size,
+  sector size, and serial on that handle before locking, before writing, and
+  before accepting a new volume. It refuses the disk that holds `rufust.exe`.
+  DLL search for both executables is System32 only. Every target volume stays
+  locked and dismounted during raw writes; the window's manifest stays
+  `asInvoker`.
 
 ### AppImage trust boundary
 

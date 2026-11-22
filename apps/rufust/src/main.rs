@@ -37,6 +37,10 @@ use generated_ui::*;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     #[cfg(windows)]
+    if !rufust_platform::windows::restrict_dll_search() {
+        return Err("could not restrict DLL search to System32".into());
+    }
+    #[cfg(windows)]
     {
         let arguments = std::env::args().collect::<Vec<_>>();
         if arguments.len() == 3 && arguments[1] == helper_client::WORKER_FLAG {

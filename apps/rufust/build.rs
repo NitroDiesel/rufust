@@ -1,4 +1,10 @@
 fn main() {
+    // Static imports (virtdisk.dll and the like) resolve before `main`, so the
+    // loader policy is set at link time. 0x800 is LOAD_LIBRARY_SEARCH_SYSTEM32.
+    let target = |name: &str| std::env::var(name).unwrap_or_default();
+    if target("CARGO_CFG_TARGET_OS") == "windows" && target("CARGO_CFG_TARGET_ENV") == "msvc" {
+        println!("cargo:rustc-link-arg=/DEPENDENTLOADFLAG:0x800");
+    }
     slint_build::compile("ui/appwindow.slint").expect("Slint build failed");
     #[cfg(windows)]
     windows_resources();

@@ -86,6 +86,11 @@ fn watch_termination_signals(cancel: CancellationToken) -> io::Result<SignalWatc
 }
 
 fn main() -> ExitCode {
+    #[cfg(windows)]
+    if !rufust_platform::windows::restrict_dll_search() {
+        eprintln!("could not restrict DLL search to System32");
+        return ExitCode::from(1);
+    }
     let mut args = env::args().skip(1);
     match args.next().as_deref() {
         Some("--version") | Some("-V") => {

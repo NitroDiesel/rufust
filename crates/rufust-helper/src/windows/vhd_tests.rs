@@ -112,8 +112,9 @@ fn format(scheme: PartitionScheme, filesystem: FileSystem, label: &str) -> Forma
 }
 
 /// File system name and label of the volume at `offset` on `disk`.
-fn describe(disk: u32, offset: u64) -> (String, String, PathBuf) {
-    let volume = disk::wait_for_volume(disk, offset, &CancellationToken::new()).expect("volume");
+fn describe(identity: &DeviceIdentity, offset: u64) -> (String, String, PathBuf) {
+    let disk = Disk::open(identity).expect("open disk");
+    let volume = disk::wait_for_volume(&disk, offset, &CancellationToken::new()).expect("volume");
     let name = wide(&volume.name);
     let mut label = [0u16; 64];
     let mut filesystem = [0u16; 64];
@@ -139,12 +140,7 @@ fn describe(disk: u32, offset: u64) -> (String, String, PathBuf) {
 }
 
 fn read_disk(identity: &DeviceIdentity, offset: u64, length: usize) -> Vec<u8> {
-    let disk = Disk::open(
-        identity.minor,
-        identity.size_bytes,
-        identity.logical_sector_size,
-    )
-    .expect("open disk");
+    let disk = Disk::open(identity).expect("open disk");
     let mut buffer = AlignedBuffer::new(length);
     disk.read_at(offset, buffer.as_mut_slice()).expect("read");
     buffer.as_slice().to_vec()
@@ -190,7 +186,7 @@ fn formats_with_each_windows_provider() {
                 bad_blocks: false,
             },
         );
-        let (name, volume_label, root) = describe(identity.minor, MIB);
+        let (name, volume_label, root) = describe(&identity, MIB);
         assert_eq!(name, expected, "{scheme:?} {filesystem:?}");
         assert_eq!(volume_label, filesystem.volume_label(label));
         std::fs::write(root.join("probe.txt"), b"rufust").expect("write to new volume");
@@ -314,7 +310,7 @@ fn builds_windows_installer_media() {
                 ..
             }
         )));
-        let (name, _, root) = describe(identity.minor, MIB);
+        let (name, _, root) = describe(&identity, MIB);
         assert_eq!(name, filesystem.as_str());
         let mut install = Vec::new();
         File::open(root.join("sources").join("install.wim"))
@@ -353,7 +349,7 @@ fn builds_windows_installer_media() {
             .expect("layout")
             .uefi_ntfs
             .expect("UEFI:NTFS");
-            let (name, label, root) = describe(identity.minor, span.offset);
+            let (name, label, root) = describe(&identity, span.offset);
             assert_eq!(name, "FAT");
             assert_eq!(label, winmedia::UEFI_NTFS_LABEL);
             assert!(root.join("EFI").join("Boot").join("bootx64.efi").is_file());
@@ -381,7 +377,7 @@ fn formats_large_fat32_itself() {
             bad_blocks: false,
         },
     );
-    let (name, label, root) = describe(identity.minor, MIB);
+    let (name, label, root) = describe(&identity, MIB);
     assert_eq!(name, "FAT32");
     assert_eq!(label, "BIG FAT");
     std::fs::write(root.join("probe.txt"), b"rufust").expect("write");

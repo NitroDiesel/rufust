@@ -323,6 +323,16 @@ jobs:
           if ([BitConverter]::ToUInt16($bytes, $pe + 4) -ne 0x8664) { throw 'not x86-64' }
           $text = [Text.Encoding]::ASCII.GetString($bytes)
           if (-not $text.Contains('level="asInvoker"')) { throw 'missing asInvoker manifest' }
+          # DLLs load from System32 only, and the C runtime is linked in.
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
+            -latest -products * -property installationPath
+          $dumpbin = Get-ChildItem "$vs\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe |
+            Where-Object FullName -like '*Hostx64\x64*' | Select-Object -First 1
+          if (-not $dumpbin) { throw 'dumpbin not found' }
+          $config = & $dumpbin.FullName /loadconfig $portable | Out-String
+          if ($config -notmatch '0800 Dependent Load Flag') { throw 'missing System32-only DLL search' }
+          $imports = & $dumpbin.FullName /dependents $portable | Out-String
+          if ($imports -match '(?i)vcruntime|api-ms-win-crt') { throw 'C runtime is not linked in' }
       - name: Build installer
         shell: pwsh
         run: |
